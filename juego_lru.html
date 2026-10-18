@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>LRU Defender — Juego Educativo de Memoria Virtual</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',system-ui,sans-serif;touch-action:none;user-select:none}
+  canvas{display:block;touch-action:none}
+
+  #hud{position:fixed;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:16px;align-items:center;z-index:10;pointer-events:none;background:rgba(0,20,40,0.6);padding:8px 18px;border-radius:16px;border:1px solid rgba(0,255,255,0.35);backdrop-filter:blur(6px)}
+  .hud-item{color:#0ff;font-size:15px;font-weight:bold;text-shadow:0 0 8px #0ff;white-space:nowrap}
+  .hud-item span{color:#ff0}
+
+  #request-banner{position:fixed;top:52px;left:50%;transform:translateX(-50%);background:rgba(0,20,50,0.8);border:2px solid #ff0;border-radius:14px;padding:8px 28px;z-index:10;pointer-events:none;text-align:center;opacity:0;transition:opacity 0.3s}
+  #request-banner.show{opacity:1}
+  #request-label{display:block;color:#aaa;font-size:11px;letter-spacing:2px;text-transform:uppercase}
+  #request-page{display:block;color:#ff0;font-size:32px;font-weight:900;text-shadow:0 0 15px #ff0}
+
+  #timer-container{position:fixed;top:120px;left:50%;transform:translateX(-50%);width:min(280px,60vw);height:12px;background:rgba(0,0,0,0.7);border:1px solid #f00;border-radius:8px;overflow:hidden;z-index:10;pointer-events:none;opacity:0;transition:opacity 0.3s}
+  #timer-container.show{opacity:1}
+  #timer-bar{height:100%;width:100%;background:linear-gradient(90deg,#f00,#f80,#ff0);transition:width 0.05s linear;border-radius:8px}
+
+  #stats-bar{position:fixed;top:8px;right:8px;display:flex;flex-direction:column;gap:3px;z-index:10;pointer-events:none;font-size:12px;color:#94a3b8;background:rgba(0,15,30,0.6);padding:6px 10px;border-radius:10px;border:1px solid rgba(255,255,255,0.1)}
+  #stats-bar b{color:#0ff}
+
+  #lru-stack{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);z-index:10;pointer-events:none;text-align:center}
+  #lru-label{color:#666;font-size:10px;letter-spacing:1px;margin-bottom:4px}
+  #lru-items{display:flex;gap:6px;justify-content:center}
+  .lru-chip{padding:4px 14px;border-radius:8px;font-weight:bold;font-size:15px;border:2px solid;min-width:42px;text-align:center}
+
+  #result-msg{position:fixed;top:38%;left:50%;transform:translate(-50%,-50%) scale(0.6);color:#fff;font-size:26px;font-weight:900;z-index:50;pointer-events:none;opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);text-align:center;white-space:nowrap;text-shadow:0 0 20px currentColor}
+  #result-msg.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+
+  #tutorial-btn{position:fixed;bottom:12px;right:12px;z-index:30;padding:10px 18px;font-size:14px;font-weight:700;background:rgba(0,255,255,0.12);border:1px solid #0ff;color:#0ff;border-radius:10px;cursor:pointer;backdrop-filter:blur(4px);transition:background 0.2s}
+  #tutorial-btn:hover{background:rgba(0,255,255,0.25)}
+  #tutorial-btn:active{transform:scale(0.95)}
+
+  #tutorial-modal{position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:200;display:flex;justify-content:center;align-items:center;padding:16px}
+  #tutorial-content{background:#0f1a2e;border:1px solid rgba(0,255,255,0.3);border-radius:18px;padding:28px 24px;max-width:520px;width:100%;max-height:85vh;overflow-y:auto;color:#ccc}
+  #tutorial-content h2{color:#0ff;font-size:22px;margin-bottom:16px;text-align:center}
+  .tut-section{margin-bottom:16px;padding:12px;background:rgba(0,255,255,0.04);border-radius:10px;border-left:3px solid #0ff}
+  .tut-section h3{color:#0ff;font-size:15px;margin-bottom:6px}
+  .tut-section p{font-size:13px;line-height:1.6;color:#94a3b8;margin-bottom:4px}
+  .tut-section .color-row{display:flex;align-items:center;gap:8px;margin:4px 0}
+  .color-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
+  #tutorial-close{display:block;margin:12px auto 0;padding:12px 36px;font-size:16px;font-weight:800;background:linear-gradient(135deg,#0ff,#0f0);border:none;color:#111;border-radius:10px;cursor:pointer;box-shadow:0 0 20px rgba(0,255,255,0.4)}
+  #tutorial-close:active{transform:scale(0.95)}
+
+  #gameover{position:fixed;inset:0;background:radial-gradient(circle,rgba(40,0,0,0.92),rgba(0,0,0,0.99));display:flex;flex-direction:column;justify-content:center;align-items:center;color:#f00;gap:14px;z-index:100;text-align:center;padding:20px}
+  #gameover h1{font-size:48px;text-shadow:0 0 30px #f00;letter-spacing:3px}
+  #gameover .info{font-size:16px;color:#0ff;line-height:2}
+  #gameover .info b{color:#ff0;font-size:20px}
+  #reiniciar{margin-top:10px;padding:14px 42px;font-size:18px;background:linear-gradient(135deg,#0ff,#0f0);border:none;color:#111;font-weight:900;cursor:pointer;border-radius:10px;box-shadow:0 0 25px #0ff}
+  #reiniciar:active{transform:scale(0.95)}
+
+  #flash{position:fixed;inset:0;opacity:0;pointer-events:none;z-index:5;transition:opacity 0.15s}
+  .oculto{display:none !important}
+
+  @media(max-width:600px){
+    #hud{gap:10px;padding:6px 12px}
+    .hud-item{font-size:12px}
+    #request-page{font-size:26px}
+    #stats-bar{font-size:10px}
+    #result-msg{font-size:18px;white-space:normal;max-width:90vw}
+    #gameover h1{font-size:36px}
+  }
+</style>
+</head>
+<body>
+
+<div id="flash"></div>
+
+<div id="hud">
+  <div class="hud-item">🎯 <span id="score">0</span></div>
+  <div class="hud-item">🔥 x<span id="combo">1</span></div>
+  <div class="hud-item">❤️ <span id="hp">100</span></div>
+  <div class="hud-item">📊 N<span id="level">1</span></div>
+</div>
+
+<div id="request-banner">
+  <div id="request-label">Solicitud de página</div>
+  <div id="request-page">—</div>
+</div>
+
+<div id="timer-container"><div id="timer-bar"></div></div>
+
+<div id="stats-bar">
+  <span>✅ Aciertos: <b id="s-hits">0</b></span>
+  <span>📦 Fallos: <b id="s-misses">0</b></span>
+  <span>🎯 Evicciones OK: <b id="s-ec">0</b></span>
+  <span>💀 Evicciones mal: <b id="s-ew">0</b></span>
+</div>
+
+<div id="lru-stack">
+  <div id="lru-label">ORDEN LRU — izq = menos usada (🔴) → der = más usada (🟢)</div>
+  <div id="lru-items"></div>
+</div>
+
+<div id="result-msg"></div>
+
+<button id="tutorial-btn">❓ Tutorial</button>
+
+<div id="tutorial-modal" class="oculto">
+  <div id="tutorial-content">
+    <h2>🎮 Cómo jugar — LRU Defender</h2>
+
+    <div class="tut-section">
+      <h3>🧠 ¿Qué es LRU?</h3>
+      <p>LRU (Least Recently Used) es un algoritmo de reemplazo de páginas del sistema operativo. Cuando la memoria RAM está llena y llega una página nueva, se desaloja la que lleva <b>más tiempo sin usarse</b>.</p>
+    </div>
+
+    <div class="tut-section">
+      <h3>🎮 Objetivo</h3>
+      <p>Cada turno aparece una solicitud de página. Tu tarea es ayudar al sistema operativo a gestionar la memoria correctamente.</p>
+      <p><b>1.</b> Mirá qué página se solicita arriba.</p>
+      <p><b>2.</b> Si ya está en memoria → ¡acierto automático!</p>
+      <p><b>3.</b> Si hay marcos libres → se carga sola.</p>
+      <p><b>4.</b> Si la memoria está llena → <b>hacé clic (o tocá) la página que debe desalojarse</b>. Es la menos usada recientemente.</p>
+    </div>
+
+    <div class="tut-section">
+      <h3>🎨 Colores = Orden de uso</h3>
+      <div class="color-row"><div class="color-dot" style="background:#f00"></div><p>🔴 Rojo = menos usada recientemente → <b>¡dispará esta!</b></p></div>
+      <div class="color-row"><div class="color-dot" style="background:#ff0"></div><p>🟡 Amarillo = uso intermedio</p></div>
+      <div class="color-row"><div class="color-dot" style="background:#0f0"></div><p>🟢 Verde = usada recientemente → <b>no disparar</b></p></div>
+      <p>Las páginas se acomodan visualmente: la más vieja a la izquierda, la más nueva a la derecha.</p>
+    </div>
+
+    <div class="tut-section">
+      <h3>🏆 Puntuación</h3>
+      <p>✅ Acierto (página ya en RAM): +10 pts</p>
+      <p>✅ Evicción correcta: +25 pts</p>
+      <p>❌ Evicción incorrecta: −20 de vida</p>
+      <p>⏰ Tiempo agotado: −15 de vida</p>
+      <p>🔥 Combo: multiplicá puntos si acertás seguido</p>
+    </div>
+
+    <div class="tut-section">
+      <h3>💡 Consejo</h3>
+      <p>Fijate en el color: si es roja, es la que lleva más tiempo sin usarse. Disparala antes de que se acabe el tiempo. Si disparás la página equivocada, perdés vida.</p>
+    </div>
+
+    <button id="tutorial-close">¡Entendido, a jugar!</button>
+  </div>
+</div>
+
+<div id="gameover" class="oculto">
+  <h1>GAME OVER</h1>
+  <div class="info">
+    Puntaje final: <b id="go-score">0</b><br>
+    Nivel alcanzado: <b id="go-level">1</b><br>
+    Aciertos: <b id="go-hits">0</b> · Evicciones correctas: <b id="go-ec">0</b><br>
+    Tasa de aciertos: <b id="go-rate">0%</b>
+  </div>
+  <button id="reiniciar">REINTENTAR</button>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+// ============================================================
+// CONSTANTES
+// ============================================================
+const MAX_FRAMES = 3;
+const ARENA = 18;
+const POS_FRAMES = [-6, 0, 6];
+const XP_POR_NIVEL = 100;
+
+const NIVELES = [
+  { maxPage: 5,  timerMs: 5000, color: 0x00e5ff },
+  { maxPage: 6,  timerMs: 4500, color: 0x00ffa6 },
+  { maxPage: 7,  timerMs: 4200, color: 0xa0ff00 },
+  { maxPage: 8,  timerMs: 3800, color: 0xffea00 },
+  { maxPage: 9,  timerMs: 3500, color: 0xff9800 },
+  { maxPage: 10, timerMs: 3200, color: 0xff5500 },
+  { maxPage: 12, timerMs: 3000, color: 0xff2200 },
+  { maxPage: 14, timerMs: 2800, color: 0xff0044 },
+];
+function cfgNivel(n) {
+  const i = Math.min(n - 1, NIVELES.length - 1);
+  const b = NIVELES[i];
+  const extra = Math.max(0, n - NIVELES.length);
+  return { maxPage: b.maxPage + extra, timerMs: Math.max(2000, b.timerMs - extra * 150), color: b.color };
+}
+
+const TIEMPOS = {
+  mostrarRequest: 1000,
+  resultado: 1400,
+};
+
+// ============================================================
+// THREE.JS SETUP
+// ============================================================
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+document.body.appendChild(renderer.domElement);
+renderer.domElement.style.position = 'fixed';
+renderer.domElement.style.inset = '0';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x05060d);
+scene.fog = new THREE.Fog(0x05060d, 25, 55);
+
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 100);
+camera.position.set(0, 20, 16);
+camera.lookAt(0, 0, 0);
+
+// luces
+scene.add(new THREE.AmbientLight(0x334466, 0.9));
+const dirLight = new THREE.DirectionalLight(0xaaddff, 1.3);
+dirLight.position.set(12, 25, 10);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(1024, 1024);
+dirLight.shadow.camera.left = -20;
+dirLight.shadow.camera.right = 20;
+dirLight.shadow.camera.top = 20;
+dirLight.shadow.camera.bottom = -20;
+scene.add(dirLight);
+scene.add(new THREE.HemisphereLight(0x0088ff, 0x001122, 0.5));
+const colorLight = new THREE.PointLight(0x00ffff, 1.5, 50);
+colorLight.position.set(0, 10, 0);
+scene.add(colorLight);
+
+// ============================================================
+// ENTORNO
+// ============================================================
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(ARENA * 2, ARENA * 2, 30, 30),
+  new THREE.MeshStandardMaterial({ color: 0x0a1428, roughness: 0.8, metalness: 0.4, emissive: 0x001122, emissiveIntensity: 0.3 })
+);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+const grid = new THREE.GridHelper(ARENA * 2, 30, 0x00ccff, 0x003355);
+grid.position.y = 0.01;
+grid.material.opacity = 0.25;
+grid.material.transparent = true;
+scene.add(grid);
+
+// ============================================================
+// AUDIO
+// ============================================================
+let audioCtx;
+function initAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+function playTone(freq, dur, type = 'sine', vol = 0.12) {
+  if (!audioCtx) return;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type;
+  o.frequency.value = freq;
+  g.gain.value = vol;
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime + dur);
+}
+const sfx = {
+  acierto: () => { playTone(660, 0.1); setTimeout(() => playTone(880, 0.12), 60); },
+  fallo: () => playTone(440, 0.12),
+  correcto: () => { playTone(523, 0.08); setTimeout(() => playTone(659, 0.08), 60); setTimeout(() => playTone(784, 0.15), 120); },
+  error: () => { playTone(200, 0.25, 'sawtooth', 0.1); setTimeout(() => playTone(150, 0.2, 'sawtooth', 0.08), 80); },
+  timeout: () => playTone(150, 0.35, 'square', 0.08),
+  nivel: () => { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playTone(f, 0.1), i * 70)); },
+  disparo: () => playTone(1200, 0.05, 'square', 0.06),
+};
+
+// ============================================================
+// TEXTURAS Y MESHES
+// ============================================================
+function crearTexturaPagina(num) {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 256;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#0a0a2e';
+  ctx.fillRect(0, 0, 256, 256);
+  ctx.strokeStyle = '#00ffff';
+  ctx.lineWidth = 6;
+  ctx.strokeRect(8, 8, 240, 240);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 140px Arial';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(String(num), 128, 110);
+  ctx.fillStyle = '#666688';
+  ctx.font = '26px Arial';
+  ctx.fillText('PÁGINA', 128, 210);
+  return new THREE.CanvasTexture(c);
+}
+
+// Marcos de memoria
+const marcos = [];
+for (let i = 0; i < MAX_FRAMES; i++) {
+  const g = new THREE.Group();
+  const baseMat = new THREE.MeshStandardMaterial({ color: 0x001133, emissive: 0x0088ff, emissiveIntensity: 0.25, transparent: true, opacity: 0.5 });
+  const base = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.25, 3.2), baseMat);
+  base.position.y = 0.125;
+  base.receiveShadow = true;
+  g.add(base);
+
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, side: THREE.DoubleSide, transparent: true, opacity: 0.25 });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(1.5, 1.75, 32), ringMat);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.26;
+  g.add(ring);
+
+  // label "MARCO n"
+  const lc = document.createElement('canvas');
+  lc.width = 256; lc.height = 64;
+  const lctx = lc.getContext('2d');
+  lctx.fillStyle = '#0088ff';
+  lctx.font = 'bold 28px Arial';
+  lctx.textAlign = 'center';
+  lctx.fillText(`MARCO ${i + 1}`, 128, 36);
+  const ltex = new THREE.CanvasTexture(lc);
+  const lmat = new THREE.MeshBasicMaterial({ map: ltex, transparent: true, opacity: 0.5 });
+  const label = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 0.6), lmat);
+  label.rotation.x = -Math.PI / 2;
+  label.position.y = 0.02;
+  label.position.z = 2;
+  g.add(label);
+
+  g.position.x = POS_FRAMES[i];
+  scene.add(g);
+  marcos.push({ grupo: g, baseMat, ringMat, pagina: null });
+}
+
+// Pool de páginas (una por número de página posible)
+const poolPaginas = new Map(); // num -> grupo THREE
+
+function crearMeshPagina(num) {
+  const g = new THREE.Group();
+  const tex = crearTexturaPagina(num);
+  const mat = new THREE.MeshStandardMaterial({ map: tex, emissive: 0x00ffff, emissiveIntensity: 0.4, roughness: 0.3, metalness: 0.6 });
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.2, 0.3), mat);
+  mesh.position.y = 1.6;
+  mesh.castShadow = true;
+  g.add(mesh);
+
+  const glowMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.1 });
+  const glow = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.5, 0.08), glowMat);
+  glow.position.y = 1.6;
+  g.add(glow);
+
+  g.userData = { mesh, mat, glowMat, glow, num, lastUsed: 0, targetX: 0, targetY: 1.6 };
+  return g;
+}
+
+// ============================================================
+// PARTÍCULAS
+// ============================================================
+const particulas = [];
+const partGeo = new THREE.SphereGeometry(0.1, 6, 6);
+function explosion(x, y, z, color, cant = 12, pot = 4) {
+  for (let i = 0; i < cant; i++) {
+    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 });
+    const m = new THREE.Mesh(partGeo, mat);
+    m.position.set(x, y, z);
+    const ang = Math.random() * Math.PI * 2;
+    const phi = Math.random() * Math.PI - Math.PI / 2;
+    const vel = 1 + Math.random() * pot;
+    scene.add(m);
+    particulas.push({ mesh: m, mat, vx: Math.cos(ang) * Math.cos(phi) * vel, vy: Math.sin(phi) * vel + 1.5, vz: Math.sin(ang) * Math.cos(phi) * vel, vida: 25 + Math.random() * 15, vidaMax: 35 });
+  }
+}
+
+// ============================================================
+// ESTADO
+// ============================================================
+const estado = {
+  vida: 100, puntos: 0, xp: 0, nivel: 1,
+  aciertos: 0, fallos: 0, eviccionesCorrectas: 0, eviccionesIncorrectas: 0,
+  combo: 1, ultimoAcierto: 0,
+  frame: 0, vivo: true,
+  modo: 'idle', // idle | mostrando | decidiendo | resultado
+  requestActual: null,
+  timerInicio: 0, timerDuracion: 5000,
+  screenShake: 0,
+};
+
+// ============================================================
+// UI REFS
+// ============================================================
+const $ = id => document.getElementById(id);
+const scoreEl = $('score'), comboEl = $('combo'), hpEl = $('hp'), levelEl = $('level');
+const requestBanner = $('request-banner'), requestPage = $('request-page');
+const timerContainer = $('timer-container'), timerBar = $('timer-bar');
+const resultMsg = $('result-msg');
+const lruItems = $('lru-items');
+const flashEl = $('flash');
+const gameoverEl = $('gameover');
+
+function mostrarResultado(texto, tipo) {
+  const colores = { hit: '#0f0', miss: '#ff0', correct: '#0f0', wrong: '#f00', timeout: '#f80', decide: '#f80' };
+  resultMsg.textContent = texto;
+  resultMsg.style.color = colores[tipo] || '#fff';
+  resultMsg.classList.add('show');
+  clearTimeout(resultMsg._t);
+  resultMsg._t = setTimeout(() => resultMsg.classList.remove('show'), TIEMPOS.resultado - 100);
+}
+
+function flash(color) {
+  flashEl.style.background = color;
+  flashEl.style.opacity = '0.3';
+  setTimeout(() => flashEl.style.opacity = '0', 100);
+}
+
+function actualizarHUD() {
+  scoreEl.textContent = estado.puntos;
+  comboEl.textContent = estado.combo;
+  hpEl.textContent = Math.max(0, estado.vida);
+  levelEl.textContent = estado.nivel;
+  $('s-hits').textContent = estado.aciertos;
+  $('s-misses').textContent = estado.fallos;
+  $('s-ec').textContent = estado.evicionesCorrectas;
+  $('s-ew').textContent = estado.evicionesIncorrectas;
+}
+
+// ============================================================
+// LRU LÓGICA
+// ============================================================
+function paginasCargadas() {
+  return marcos.filter(m => m.pagina).sort((a, b) => a.pagina.userData.lastUsed - b.pagina.userData.lastUsed);
+}
+
+function actualizarOrdenLRU() {
+  const orden = paginasCargadas();
+  orden.forEach((marco, i) => {
+    const p = marco.pagina.userData;
+    p.targetX = POS_FRAMES[i];
+    const t = orden.length <= 1 ? 1 : i / (orden.length - 1);
+    const hue = t * 0.33;
+    const col = new THREE.Color().setHSL(hue, 1, 0.45);
+    p.mat.emissive.copy(col);
+    p.glowMat.color.copy(col);
+    p.mat.emissiveIntensity = 0.4 + t * 0.3;
+  });
+
+  // 2D stack
+  lruItems.innerHTML = '';
+  orden.forEach((marco, i) => {
+    const t = orden.length <= 1 ? 1 : i / (orden.length - 1);
+    const hue = Math.round(t * 0.33 * 360);
+    const chip = document.createElement('div');
+    chip.className = 'lru-chip';
+    chip.textContent = marco.pagina.userData.num;
+    chip.style.color = `hsl(${hue},100%,60%)`;
+    chip.style.borderColor = `hsl(${hue},100%,40%)`;
+    chip.style.background = `hsla(${hue},100%,50%,0.1)`;
+    lruItems.appendChild(chip);
+  });
+}
+
+// ============================================================
+// GAME FLOW
+// ============================================================
+let tiempoDesdeUltimaAccion = 0;
+
+function generarSolicitud() {
+  const cargadas = paginasCargadas().map(m => m.pagina.userData.num);
+  const maxP = cfgNivel(estado.nivel).maxPage;
+
+  if (cargadas.length < MAX_FRAMES) {
+    let num;
+    do { num = Math.floor(Math.random() * maxP) + 1; } while (cargadas.includes(num));
+    return num;
+  }
+  if (Math.random() < 0.35) {
+    return cargadas[Math.floor(Math.random() * cargadas.length)];
+  }
+  let num;
+  do { num = Math.floor(Math.random() * maxP) + 1; } while (cargadas.includes(num));
+  return num;
+}
+
+function siguienteSolicitud() {
+  if (!estado.vivo) return;
+  estado.modo = 'mostrando';
+  estado.requestActual = generarSolicitud();
+  requestPage.textContent = estado.requestActual;
+  requestBanner.classList.add('show');
+  timerContainer.classList.remove('show');
+
+  setTimeout(() => {
+    if (!estado.vivo) return;
+    procesarSolicitud(estado.requestActual);
+  }, TIEMPOS.mostrarRequest);
+}
+
+function procesarSolicitud(num) {
+  const marcoConPagina = marcos.find(m => m.pagina && m.pagina.userData.num === num);
+
+  if (marcoConPagina) {
+    // HIT
+    estado.modo = 'resultado';
+    marcoConPagina.pagina.userData.lastUsed = Date.now();
+    // bounce animation
+    marcoConPagina.pagina.userData.targetY = 2.8;
+    setTimeout(() => { if (marcoConPagina.pagina) marcoConPagina.pagina.userData.targetY = 1.6; }, 200);
+    actualizarOrdenLRU();
+    estado.aciertos++;
+    estado.puntos += 10 * estado.combo;
+    estado.xp += 5;
+    estado.combo = Math.min(estado.combo + 1, 8);
+    estado.ultimoAcierto = Date.now();
+    mostrarResultado(`✅ ACIERTO — Página ${num} ya estaba en memoria`, 'hit');
+    sfx.acierto();
+    flash('#0f0');
+    actualizarHUD();
+    verificarNivel();
+    requestBanner.classList.remove('show');
+    setTimeout(siguienteSolicitud, TIEMPOS.resultado);
+
+  } else if (marcos.some(m => !m.pagina)) {
+    // MISS con marco libre
+    estado.modo = 'resultado';
+    const libre = marcos.find(m => !m.pagina);
+    cargarPagina(libre, num);
+    estado.fallos++;
+    estado.xp += 2;
+    mostrarResultado(`📦 FALLO — Cargando página ${num} en marco libre`, 'miss');
+    sfx.fallo();
+    actualizarHUD();
+    verificarNivel();
+    requestBanner.classList.remove('show');
+    setTimeout(siguienteSolicitud, TIEMPOS.resultado);
+
+  } else {
+    // MISS con memoria llena — DECIDIR
+    estado.modo = 'decidiendo';
+    estado.timerInicio = Date.now();
+    estado.timerDuracion = cfgNivel(estado.nivel).timerMs;
+    timerContainer.classList.add('show');
+    mostrarResultado('⚡ ¡Memoria llena! Dispará la página MENOS usada', 'decide');
+    requestBanner.classList.remove('show');
+  }
+}
+
+function procesarDisparo(paginaGrupo) {
+  if (estado.modo !== 'decidiendo') return;
+  estado.modo = 'resultado';
+  timerContainer.classList.remove('show');
+
+  const orden = paginasCargadas();
+  const victima = orden[0]; // oldest
+  const esCorrecta = victima.pagina === paginaGrupo;
+
+  if (esCorrecta) {
+    estado.evicionesCorrectas++;
+    estado.puntos += 25 * estado.combo;
+    estado.xp += 15;
+    estado.combo = Math.min(estado.combo + 1, 8);
+    estado.ultimoAcierto = Date.now();
+    mostrarResultado(`🎯 ¡CORRECTO! Desalojaste la página ${victima.pagina.userData.num}`, 'correct');
+    sfx.correcto();
+    flash('#0f0');
+  } else {
+    estado.evicionesIncorrectas++;
+    estado.vida -= 20;
+    estado.combo = 1;
+    mostrarResultado(`💀 ¡MAL! La página ${victima.pagina.userData.num} era la menos usada`, 'wrong');
+    sfx.error();
+    flash('#f00');
+    estado.screenShake = 1.0;
+  }
+
+  explosion(victima.pagina.position.x, 2, 0, esCorrecta ? 0x00ff00 : 0xff0044, 18, 5);
+
+  // siempre se desaloja la correcta (LRU)
+  destruirPagina(victima);
+  cargarPagina(victima, estado.requestActual);
+
+  actualizarHUD();
+  verificarNivel();
+
+  if (estado.vida <= 0) { morir(); return; }
+
+  setTimeout(siguienteSolicitud, TIEMPOS.resultado);
+}
+
+function cargarPagina(marco, num) {
+  let grupo;
+  if (poolPaginas.has(num)) {
+    grupo = poolPaginas.get(num);
+  } else {
+    grupo = crearMeshPagina(num);
+    poolPaginas.set(num, grupo);
+  }
+  grupo.userData.lastUsed = Date.now();
+  grupo.userData.num = num;
+  grupo.visible = true;
+  grupo.position.x = marco.grupo.position.x;
+  grupo.position.z = 0;
+  grupo.userData.targetX = marco.grupo.position.x;
+  grupo.userData.targetY = 1.6;
+  scene.add(grupo);
+  marco.pagina = grupo;
+  actualizarOrdenLRU();
+}
+
+function destruirPagina(marco) {
+  if (marco.pagina) {
+    marco.pagina.visible = false;
+    scene.remove(marco.pagina);
+    marco.pagina = null;
+  }
+}
+
+function verificarNivel() {
+  while (estado.xp >= XP_POR_NIVEL) {
+    estado.xp -= XP_POR_NIVEL;
+    estado.nivel++;
+    sfx.nivel();
+    estado.screenShake = 1.0;
+    mostrarResultado(`⬆️ ¡NIVEL ${estado.nivel}!`, 'hit');
+  }
+}
+
+// ============================================================
+// INPUT
+// ============================================================
+const raycaster = new THREE.Raycaster();
+const mouseNDC = new THREE.Vector2();
+
+function intentarDisparo(cx, cy) {
+  if (estado.modo !== 'decidiendo') return;
+  initAudio();
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouseNDC.x = ((cx - rect.left) / rect.width) * 2 - 1;
+  mouseNDC.y = -((cy - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouseNDC, camera);
+
+  const meshes = [];
+  paginasCargadas().forEach(m => {
+    if (m.pagina) meshes.push(m.pagina.userData.mesh);
+  });
+
+  const hits = raycaster.intersectObjects(meshes, false);
+  if (hits.length > 0) {
+    const clicked = hits[0].object.parent; // grupo
+    procesarDisparo(clicked);
+    sfx.disparo();
+  }
+}
+
+renderer.domElement.addEventListener('click', e => intentarDisparo(e.clientX, e.clientY));
+renderer.domElement.addEventListener('touchstart', e => {
+  e.preventDefault();
+  initAudio();
+  for (const t of e.changedTouches) intentarDisparo(t.clientX, t.clientY);
+}, { passive: false });
+
+// init audio on any interaction
+document.addEventListener('click', initAudio, { once: true });
+document.addEventListener('touchstart', initAudio, { once: true });
+
+// ============================================================
+// TUTORIAL
+// ============================================================
+const tutorialModal = $('tutorial-modal');
+$('tutorial-btn').addEventListener('click', () => tutorialModal.classList.remove('oculto'));
+$('tutorial-close').addEventListener('click', () => tutorialModal.classList.add('oculto'));
+tutorialModal.addEventListener('click', e => { if (e.target === tutorialModal) tutorialModal.classList.add('oculto'); });
+
+// ============================================================
+// GAME OVER / RESET
+// ============================================================
+function morir() {
+  estado.vivo = false;
+  estado.modo = 'dead';
+  const total = estado.aciertos + estado.fallos + estado.evicionesCorrectas + estado.evicionesIncorrectas;
+  const rate = total > 0 ? Math.round(((estado.aciertos + estado.evicionesCorrectas) / total) * 100) : 0;
+  $('go-score').textContent = estado.puntos;
+  $('go-level').textContent = estado.nivel;
+  $('go-hits').textContent = estado.aciertos;
+  $('go-ec').textContent = estado.evicionesCorrectas;
+  $('go-rate').textContent = rate + '%';
+  gameoverEl.classList.remove('oculto');
+}
+
+function reset() {
+  marcos.forEach(m => destruirPagina(m));
+  particulas.forEach(p => scene.remove(p.mesh));
+  particulas.length = 0;
+  poolPaginas.clear();
+
+  estado.vida = 100; estado.puntos = 0; estado.xp = 0; estado.nivel = 1;
+  estado.aciertos = 0; estado.fallos = 0; estado.evicionesCorrectas = 0; estado.evicionesIncorrectas = 0;
+  estado.combo = 1; estado.frame = 0; estado.vivo = true; estado.modo = 'idle';
+  estado.screenShake = 0;
+
+  actualizarHUD();
+  actualizarOrdenLRU();
+  gameoverEl.classList.add('oculto');
+  requestBanner.classList.remove('show');
+  timerContainer.classList.remove('show');
+  resultMsg.classList.remove('show');
+  lruItems.innerHTML = '';
+
+  setTimeout(siguienteSolicitud, 500);
+}
+
+$('reiniciar').addEventListener('click', reset);
+
+// ============================================================
+// RESIZE
+// ============================================================
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ============================================================
+// LOOP
+// ============================================================
+function update() {
+  estado.frame++;
+  const cfg = cfgNivel(estado.nivel);
+
+  // timer de decisión
+  if (estado.modo === 'decidiendo') {
+    const elapsed = Date.now() - estado.timerInicio;
+    const remaining = Math.max(0, 1 - elapsed / estado.timerDuracion);
+    timerBar.style.width = (remaining * 100) + '%';
+
+    if (elapsed >= estado.timerDuracion) {
+      // timeout
+      estado.modo = 'resultado';
+      timerContainer.classList.remove('show');
+      estado.evicionesIncorrectas++;
+      estado.vida -= 15;
+      estado.combo = 1;
+      const orden = paginasCargadas();
+      if (orden.length > 0) {
+        const victima = orden[0];
+        mostrarResultado(`⏰ ¡Se acabó el tiempo! Se desalojó la página ${victima.pagina.userData.num}`, 'timeout');
+        explosion(victima.pagina.position.x, 2, 0, 0xff8800, 14, 4);
+        destruirPagina(victima);
+        cargarPagina(victima, estado.requestActual);
+      }
+      sfx.timeout();
+      flash('#f80');
+      actualizarHUD();
+      if (estado.vida <= 0) { morir(); return; }
+      setTimeout(siguienteSolicitud, TIEMPOS.resultado);
+    }
+  }
+
+  // combo decae
+  if (Date.now() - estado.ultimoAcierto > 3000 && estado.combo > 1) {
+    estado.combo = 1;
+    comboEl.textContent = 1;
+  }
+
+  // animar posiciones de páginas (LRU order)
+  marcos.forEach(m => {
+    if (m.pagina) {
+      const ud = m.pagina.userData;
+      m.pagina.position.x += (ud.targetX - m.pagina.position.x) * 0.12;
+      m.pagina.position.y += (ud.targetY - m.pagina.position.y) * 0.15;
+      m.pagina.rotation.y += 0.008;
+      // glow pulse
+      ud.glowMat.opacity = 0.08 + Math.sin(estado.frame * 0.05) * 0.04;
+    }
+  });
+
+  // highlight páginas en modo decisión
+  if (estado.modo === 'decidiendo') {
+    paginasCargadas().forEach((m, i) => {
+      if (m.pagina) {
+        const pulse = 0.3 + Math.sin(estado.frame * 0.1 + i) * 0.2;
+        m.pagina.userData.glowMat.opacity = pulse;
+      }
+    });
+  }
+
+  // partículas
+  for (let i = particulas.length - 1; i >= 0; i--) {
+    const pt = particulas[i];
+    pt.mesh.position.x += pt.vx * 0.05;
+    pt.mesh.position.y += pt.vy * 0.05;
+    pt.mesh.position.z += pt.vz * 0.05;
+    pt.vy -= 0.12;
+    pt.vx *= 0.96; pt.vz *= 0.96;
+    pt.vida--;
+    pt.mat.opacity = pt.vida / pt.vidaMax;
+    if (pt.vida <= 0) { scene.remove(pt.mesh); particulas.splice(i, 1); }
+  }
+
+  // luz de color
+  colorLight.color.setHex(cfg.color);
+
+  // screen shake
+  if (estado.screenShake > 0.01) estado.screenShake *= 0.9;
+
+  // cámara
+  camera.position.x += (0 - camera.position.x) * 0.05;
+  camera.position.z += (16 - camera.position.z) * 0.05;
+  camera.position.y = 20 + (estado.screenShake > 0.1 ? (Math.random() - 0.5) * estado.screenShake * 0.4 : 0);
+  camera.position.x += estado.screenShake > 0.1 ? (Math.random() - 0.5) * estado.screenShake * 0.3 : 0;
+  camera.lookAt(0, 0, 0);
+}
+
+function loop() {
+  update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+
+// arrancar
+actualizarHUD();
+setTimeout(siguienteSolicitud, 800);
+loop();
+</script>
+</body>
+</html>
