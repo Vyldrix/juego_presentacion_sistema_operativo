@@ -4,67 +4,127 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>LRU Defender — Juego Educativo de Memoria Virtual</title>
+<meta name="description" content="Juego educativo interactivo para aprender los algoritmos LRU y Working Set de reemplazo de páginas en sistemas operativos.">
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',system-ui,sans-serif;touch-action:none;user-select:none}
   canvas{display:block;touch-action:none}
 
-  #hud{position:fixed;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:16px;align-items:center;z-index:10;pointer-events:none;background:rgba(0,20,40,0.6);padding:8px 18px;border-radius:16px;border:1px solid rgba(0,255,255,0.35);backdrop-filter:blur(6px)}
-  .hud-item{color:#0ff;font-size:15px;font-weight:bold;text-shadow:0 0 8px #0ff;white-space:nowrap}
+  #welcome-screen{position:fixed;inset:0;z-index:500;background:radial-gradient(ellipse at 50% 40%,#0a1a35 0%,#000510 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;overflow-y:auto}
+  .logo-title{font-size:clamp(28px,6vw,54px);font-weight:900;letter-spacing:4px;background:linear-gradient(135deg,#00e5ff,#00ff88,#00e5ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:4px;text-align:center;animation:titlePulse 3s ease-in-out infinite}
+  @keyframes titlePulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)}}
+  .logo-sub{color:#4a6a8a;font-size:13px;letter-spacing:3px;text-transform:uppercase;margin-bottom:26px;text-align:center}
+  #welcome-card{background:rgba(0,20,50,0.87);border:1px solid rgba(0,255,255,0.3);border-radius:20px;padding:26px 30px;width:min(430px,95vw);backdrop-filter:blur(12px);box-shadow:0 0 60px rgba(0,200,255,0.15),inset 0 1px 0 rgba(255,255,255,0.05)}
+  #welcome-card label{display:block;color:#00e5ff;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;font-weight:600}
+  #player-name-input{width:100%;padding:12px 15px;background:rgba(0,30,60,0.8);border:2px solid rgba(0,255,255,0.3);border-radius:10px;color:#fff;font-size:17px;font-weight:600;outline:none;transition:border-color 0.2s,box-shadow 0.2s;letter-spacing:1px}
+  #player-name-input:focus{border-color:#00e5ff;box-shadow:0 0 18px rgba(0,229,255,0.25)}
+  #player-name-input::placeholder{color:#2a4a6a;font-weight:400}
+  #name-error{color:#ff4466;font-size:12px;margin-top:5px;min-height:16px}
+  #start-btn{display:block;width:100%;margin-top:16px;padding:14px;font-size:16px;font-weight:800;letter-spacing:2px;background:linear-gradient(135deg,#00e5ff,#00ff88);border:none;border-radius:12px;color:#001a20;cursor:pointer;box-shadow:0 0 28px rgba(0,229,255,0.4);transition:transform 0.15s,box-shadow 0.15s}
+  #start-btn:hover{box-shadow:0 0 42px rgba(0,229,255,0.6);transform:translateY(-1px)}
+  #start-btn:active{transform:scale(0.97)}
+  #welcome-tut-btn{display:block;width:100%;margin-top:10px;padding:12px;font-size:13px;font-weight:800;letter-spacing:1.5px;background:rgba(0,229,255,0.08);border:2px solid rgba(0,229,255,0.45);border-radius:12px;color:#00e5ff;cursor:pointer;box-shadow:0 0 16px rgba(0,229,255,0.15);transition:all 0.15s;text-transform:uppercase}
+  #welcome-tut-btn:hover{background:rgba(0,229,255,0.22);box-shadow:0 0 24px rgba(0,229,255,0.4);transform:translateY(-1px);color:#fff;border-color:#00e5ff}
+  #welcome-tut-btn:active{transform:scale(0.97)}
+  #qr-section{margin-top:20px;text-align:center;padding-top:18px;border-top:1px solid rgba(0,255,255,0.1)}
+  #qr-section p{color:#4a6a8a;font-size:11px;letter-spacing:1px;margin-bottom:10px;text-transform:uppercase}
+  #qr-canvas-wrap{display:inline-block;padding:9px;background:#fff;border-radius:10px;box-shadow:0 0 18px rgba(0,229,255,0.2)}
+  #qr-url-note{margin-top:7px;font-size:10px;color:#2a4060;background:rgba(0,50,100,0.4);border:1px solid rgba(0,200,255,0.15);border-radius:6px;padding:4px 9px;display:inline-block}
+
+  #hud{position:fixed;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:12px;align-items:center;z-index:10;pointer-events:none;background:rgba(0,20,40,0.65);padding:7px 14px;border-radius:16px;border:1px solid rgba(0,255,255,0.35);backdrop-filter:blur(6px);flex-wrap:wrap;justify-content:center}
+  .hud-item{color:#0ff;font-size:13px;font-weight:bold;text-shadow:0 0 8px #0ff;white-space:nowrap}
   .hud-item span{color:#ff0}
+  #algo-badge{padding:3px 9px;border-radius:8px;font-size:11px;font-weight:800;letter-spacing:1px;border:1px solid;transition:all 0.3s}
+  #algo-badge.lru{color:#00e5ff;border-color:#00e5ff;background:rgba(0,229,255,0.12);text-shadow:0 0 8px #00e5ff}
+  #algo-badge.ws{color:#ff9800;border-color:#ff9800;background:rgba(255,152,0,0.12);text-shadow:0 0 8px #ff9800}
+  #player-badge{color:#a0c0ff;font-size:11px;font-weight:600;white-space:nowrap}
 
-  #request-banner{position:fixed;top:52px;left:50%;transform:translateX(-50%);background:rgba(0,20,50,0.8);border:2px solid #ff0;border-radius:14px;padding:8px 28px;z-index:10;pointer-events:none;text-align:center;opacity:0;transition:opacity 0.3s}
+  #request-banner{position:fixed;top:52px;left:50%;transform:translateX(-50%);background:rgba(0,15,35,0.94);border:2px solid #00e5ff;border-radius:16px;padding:8px 26px;z-index:35;pointer-events:none;text-align:center;opacity:0;transition:opacity 0.25s;backdrop-filter:blur(8px);box-shadow:0 0 30px rgba(0,229,255,0.35);white-space:nowrap}
   #request-banner.show{opacity:1}
-  #request-label{display:block;color:#aaa;font-size:11px;letter-spacing:2px;text-transform:uppercase}
-  #request-page{display:block;color:#ff0;font-size:32px;font-weight:900;text-shadow:0 0 15px #ff0}
+  #request-label{display:block;color:#94a3b8;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700}
+  #request-page{display:block;color:#ffff00;font-size:clamp(38px,7vw,54px);font-weight:900;text-shadow:0 0 18px #ffff00,0 0 34px rgba(255,255,0,0.6);line-height:1.15}
+  #request-algo-hint{display:none;color:#ff9800;font-size:11px;font-weight:700;letter-spacing:1px;margin-top:3px}
 
-  #timer-container{position:fixed;top:120px;left:50%;transform:translateX(-50%);width:min(280px,60vw);height:12px;background:rgba(0,0,0,0.7);border:1px solid #f00;border-radius:8px;overflow:hidden;z-index:10;pointer-events:none;opacity:0;transition:opacity 0.3s}
+  #timer-container{position:fixed;bottom:48px;left:50%;transform:translateX(-50%);width:min(290px,62vw);height:10px;background:rgba(0,0,0,0.7);border:1px solid #f00;border-radius:8px;overflow:hidden;z-index:15;pointer-events:none;opacity:0;transition:opacity 0.3s}
   #timer-container.show{opacity:1}
   #timer-bar{height:100%;width:100%;background:linear-gradient(90deg,#f00,#f80,#ff0);transition:width 0.05s linear;border-radius:8px}
 
-  #stats-bar{position:fixed;top:8px;right:8px;display:flex;flex-direction:column;gap:3px;z-index:10;pointer-events:none;font-size:12px;color:#94a3b8;background:rgba(0,15,30,0.6);padding:6px 10px;border-radius:10px;border:1px solid rgba(255,255,255,0.1)}
+  #stats-bar{position:fixed;top:8px;right:8px;display:flex;flex-direction:column;gap:3px;z-index:10;pointer-events:none;font-size:10px;color:#94a3b8;background:rgba(0,15,30,0.65);padding:5px 9px;border-radius:10px;border:1px solid rgba(255,255,255,0.1)}
   #stats-bar b{color:#0ff}
 
-  #lru-stack{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);z-index:10;pointer-events:none;text-align:center}
-  #lru-label{color:#666;font-size:10px;letter-spacing:1px;margin-bottom:4px}
-  #lru-items{display:flex;gap:6px;justify-content:center}
-  .lru-chip{padding:4px 14px;border-radius:8px;font-weight:bold;font-size:15px;border:2px solid;min-width:42px;text-align:center}
+  /* CARTEL DE DESALOJO CENTRADO EN LA PARTE SUPERIOR */
+  #evict-banner-top{position:fixed;top:52px;left:50%;transform:translateX(-50%);z-index:40;pointer-events:none;background:linear-gradient(135deg,rgba(220,0,48,0.96),rgba(140,0,25,0.96));border:2px solid #ff2255;box-shadow:0 0 30px rgba(255,34,85,0.9);border-radius:12px;padding:7px 22px;display:none;align-items:center;justify-content:center;gap:12px;font-size:13px;font-weight:900;color:#fff;letter-spacing:1px;backdrop-filter:blur(8px);animation:evictPulse 0.7s infinite alternate;white-space:nowrap}
+  #evict-banner-top.show{display:inline-flex}
+  #evict-banner-top b{color:#ffff00;font-size:22px;text-shadow:0 0 12px #ffff00;background:rgba(0,0,0,0.45);padding:2px 10px;border-radius:7px;border:1px solid rgba(255,255,0,0.6)}
+  #evict-banner-top .evict-sub{font-size:11px;color:#ffe0e6;font-weight:700;letter-spacing:0.5px}
+  @keyframes evictPulse{from{transform:scale(0.97)}to{transform:scale(1.03)}}
 
-  #result-msg{position:fixed;top:38%;left:50%;transform:translate(-50%,-50%) scale(0.6);color:#fff;font-size:26px;font-weight:900;z-index:50;pointer-events:none;opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);text-align:center;white-space:nowrap;text-shadow:0 0 20px currentColor}
+  #lru-stack{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);z-index:20;pointer-events:none;text-align:center;width:min(96vw,760px);display:flex;flex-direction:column;align-items:center}
+  #lru-label{color:#8ab4d8;font-size:10px;letter-spacing:1px;margin-bottom:4px;font-weight:700;text-shadow:0 0 6px rgba(0,0,0,0.8)}
+  #lru-items{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;max-width:100%}
+  .lru-chip{padding:4px 12px;border-radius:8px;font-weight:900;font-size:14px;border:2px solid;min-width:36px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,0.5);display:inline-flex;align-items:center;gap:6px}
+  .lru-chip-evict-tag{font-size:10px;font-weight:900;padding:2px 6px;background:#ff0044;color:#fff;border-radius:4px;letter-spacing:1px}
+
+  #result-msg{position:fixed;top:38%;left:50%;transform:translate(-50%,-50%) scale(0.6);color:#fff;font-size:20px;font-weight:900;z-index:50;pointer-events:none;opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);text-align:center;white-space:nowrap;text-shadow:0 0 20px currentColor}
   #result-msg.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
 
-  #tutorial-btn{position:fixed;bottom:12px;right:12px;z-index:30;padding:10px 18px;font-size:14px;font-weight:700;background:rgba(0,255,255,0.12);border:1px solid #0ff;color:#0ff;border-radius:10px;cursor:pointer;backdrop-filter:blur(4px);transition:background 0.2s}
-  #tutorial-btn:hover{background:rgba(0,255,255,0.25)}
-  #tutorial-btn:active{transform:scale(0.95)}
-
-  #tutorial-modal{position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:200;display:flex;justify-content:center;align-items:center;padding:16px}
-  #tutorial-content{background:#0f1a2e;border:1px solid rgba(0,255,255,0.3);border-radius:18px;padding:28px 24px;max-width:520px;width:100%;max-height:85vh;overflow-y:auto;color:#ccc}
-  #tutorial-content h2{color:#0ff;font-size:22px;margin-bottom:16px;text-align:center}
-  .tut-section{margin-bottom:16px;padding:12px;background:rgba(0,255,255,0.04);border-radius:10px;border-left:3px solid #0ff}
-  .tut-section h3{color:#0ff;font-size:15px;margin-bottom:6px}
-  .tut-section p{font-size:13px;line-height:1.6;color:#94a3b8;margin-bottom:4px}
-  .tut-section .color-row{display:flex;align-items:center;gap:8px;margin:4px 0}
-  .color-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
-  #tutorial-close{display:block;margin:12px auto 0;padding:12px 36px;font-size:16px;font-weight:800;background:linear-gradient(135deg,#0ff,#0f0);border:none;color:#111;border-radius:10px;cursor:pointer;box-shadow:0 0 20px rgba(0,255,255,0.4)}
+  #tutorial-modal{position:fixed;inset:0;background:rgba(0,0,0,0.93);z-index:1000;display:flex;justify-content:center;align-items:center;padding:12px}
+  #tutorial-content{background:#0f1a2e;border:1px solid rgba(0,255,255,0.3);border-radius:18px;padding:22px 18px;max-width:540px;width:100%;max-height:88vh;overflow-y:auto;color:#ccc}
+  #tutorial-content h2{color:#0ff;font-size:19px;margin-bottom:13px;text-align:center}
+  .tut-section{margin-bottom:11px;padding:9px 11px;background:rgba(0,255,255,0.04);border-radius:10px;border-left:3px solid #0ff}
+  .tut-section.ws-section{border-left-color:#ff9800}
+  .tut-section h3{color:#0ff;font-size:13px;margin-bottom:4px}
+  .tut-section.ws-section h3{color:#ff9800}
+  .tut-section p{font-size:11px;line-height:1.55;color:#94a3b8;margin-bottom:3px}
+  .tut-section .color-row{display:flex;align-items:center;gap:7px;margin:2px 0}
+  .color-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+  #tutorial-close{display:block;margin:11px auto 0;padding:10px 30px;font-size:14px;font-weight:800;background:linear-gradient(135deg,#0ff,#0f0);border:none;color:#111;border-radius:10px;cursor:pointer;box-shadow:0 0 18px rgba(0,255,255,0.4)}
   #tutorial-close:active{transform:scale(0.95)}
 
-  #gameover{position:fixed;inset:0;background:radial-gradient(circle,rgba(40,0,0,0.92),rgba(0,0,0,0.99));display:flex;flex-direction:column;justify-content:center;align-items:center;color:#f00;gap:14px;z-index:100;text-align:center;padding:20px}
-  #gameover h1{font-size:48px;text-shadow:0 0 30px #f00;letter-spacing:3px}
-  #gameover .info{font-size:16px;color:#0ff;line-height:2}
-  #gameover .info b{color:#ff0;font-size:20px}
-  #reiniciar{margin-top:10px;padding:14px 42px;font-size:18px;background:linear-gradient(135deg,#0ff,#0f0);border:none;color:#111;font-weight:900;cursor:pointer;border-radius:10px;box-shadow:0 0 25px #0ff}
+  #gameover{position:fixed;inset:0;background:radial-gradient(circle,rgba(5,0,20,0.97),rgba(0,0,0,0.99));display:flex;flex-direction:column;justify-content:flex-start;align-items:center;gap:9px;z-index:100;text-align:center;padding:14px;overflow-y:auto}
+  #gameover h1{font-size:clamp(28px,7vw,50px);text-shadow:0 0 28px #f00;letter-spacing:3px;color:#f00;margin-top:8px}
+  #go-reason{color:#ff4466;font-size:14px;font-weight:900;letter-spacing:1px}
+  #go-result-card{background:rgba(0,10,30,0.82);border:1px solid rgba(0,255,255,0.25);border-radius:16px;padding:16px 22px;max-width:420px;width:100%;backdrop-filter:blur(8px)}
+  .go-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:13px}
+  .go-row:last-child{border-bottom:none}
+  .go-row .go-label{color:#6a8aaa}
+  .go-row .go-val{color:#ff0;font-weight:800;font-size:15px}
+  .go-rank-pos{color:#00e5ff;font-weight:900;font-size:20px;text-shadow:0 0 10px #00e5ff}
+  #go-save-status{font-size:11px;color:#6a8aaa;margin-top:5px;min-height:16px}
+
+  #ranking-card{background:rgba(0,10,30,0.82);border:1px solid rgba(0,255,255,0.2);border-radius:16px;padding:12px 16px;max-width:480px;width:100%;backdrop-filter:blur(8px)}
+  #ranking-card h3{color:#00e5ff;font-size:14px;margin-bottom:9px;letter-spacing:1px}
+  #ranking-warning{background:rgba(255,152,0,0.1);border:1px solid rgba(255,152,0,0.3);border-radius:7px;padding:5px 9px;font-size:10px;color:#ff9800;margin-bottom:7px;text-align:left}
+  .rank-row{display:flex;align-items:center;gap:7px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px}
+  .rank-row:last-child{border-bottom:none}
+  .rank-pos{width:22px;text-align:center;font-weight:800;color:#6a8aaa}
+  .rank-pos.gold{color:#ffd700;text-shadow:0 0 7px #ffd700}
+  .rank-pos.silver{color:#c0c0c0}
+  .rank-pos.bronze{color:#cd7f32}
+  .rank-name{flex:1;color:#ccc;font-weight:600;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rank-name.me{color:#00e5ff;font-weight:800}
+  .rank-score{color:#ff0;font-weight:700;min-width:48px;text-align:right}
+  .rank-info{color:#556;font-size:9px;min-width:56px;text-align:right}
+
+  #go-btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  #reiniciar,#go-ranking-btn,#go-tut-btn{padding:12px 20px;font-size:14px;border:none;font-weight:900;cursor:pointer;border-radius:10px}
+  #reiniciar{background:linear-gradient(135deg,#0ff,#0f0);color:#111;box-shadow:0 0 22px #0ff}
   #reiniciar:active{transform:scale(0.95)}
+  #go-ranking-btn{background:rgba(0,255,255,0.1);color:#0ff;border:1px solid #0ff;box-shadow:0 0 13px rgba(0,255,255,0.2)}
+  #go-ranking-btn:active{transform:scale(0.95)}
 
   #flash{position:fixed;inset:0;opacity:0;pointer-events:none;z-index:5;transition:opacity 0.15s}
   .oculto{display:none !important}
 
   @media(max-width:600px){
-    #hud{gap:10px;padding:6px 12px}
-    .hud-item{font-size:12px}
-    #request-page{font-size:26px}
-    #stats-bar{font-size:10px}
-    #result-msg{font-size:18px;white-space:normal;max-width:90vw}
-    #gameover h1{font-size:36px}
+    #hud{gap:7px;padding:5px 9px}
+    .hud-item{font-size:11px}
+    #request-page{font-size:22px}
+    #stats-bar{font-size:9px;right:4px}
+    #result-msg{font-size:15px;white-space:normal;max-width:90vw}
+    #gameover h1{font-size:30px}
+    #welcome-card{padding:18px 14px}
+    .logo-title{font-size:26px}
   }
 </style>
 </head>
@@ -72,27 +132,61 @@
 
 <div id="flash"></div>
 
+<!-- WELCOME SCREEN -->
+<div id="welcome-screen">
+  <div class="logo-title">⚡ LRU DEFENDER</div>
+  <div class="logo-sub">Juego Educativo de Memoria Virtual</div>
+  <div id="welcome-card">
+    <label for="player-name-input">👤 Tu nombre o alias</label>
+    <input type="text" id="player-name-input" maxlength="20" placeholder="Ej: AlumnoEpico99" autocomplete="off" spellcheck="false">
+    <div id="name-error"></div>
+    <button id="start-btn">▶ COMENZAR PARTIDA</button>
+    <button id="welcome-tut-btn" type="button">📖 ¿CÓMO JUGAR? — TUTORIAL</button>
+    <div id="qr-section">
+      <p>📱 Jugá desde tu celular — escaneá el QR</p>
+      <div id="qr-canvas-wrap"><canvas id="qr-canvas" width="140" height="140"></canvas></div>
+      <div id="qr-url-note"></div>
+    </div>
+  </div>
+</div>
+
+<!-- HUD -->
 <div id="hud">
   <div class="hud-item">🎯 <span id="score">0</span></div>
   <div class="hud-item">🔥 x<span id="combo">1</span></div>
-  <div class="hud-item">❤️ <span id="hp">100</span></div>
+  <div class="hud-item" id="hud-hp"><span id="hp">❤️❤️❤️</span></div>
   <div class="hud-item">📊 N<span id="level">1</span></div>
+  <div id="algo-badge" class="lru">LRU</div>
+  <div id="player-badge"></div>
 </div>
 
+<!-- REQUEST BANNER -->
 <div id="request-banner">
   <div id="request-label">Solicitud de página</div>
   <div id="request-page">—</div>
+  <div id="request-algo-hint"></div>
 </div>
 
 <div id="timer-container"><div id="timer-bar"></div></div>
 
+<!-- Indicador de víctima trasladado a la barra inferior -->
+
+<!-- STATS BAR -->
 <div id="stats-bar">
   <span>✅ Aciertos: <b id="s-hits">0</b></span>
-  <span>📦 Fallos: <b id="s-misses">0</b></span>
+  <span>📦 Fallos pág: <b id="s-misses">0</b></span>
   <span>🎯 Evicciones OK: <b id="s-ec">0</b></span>
-  <span>💀 Evicciones mal: <b id="s-ew">0</b></span>
+  <span>💀 Fallos juego: <b id="s-ew">0/3</b></span>
 </div>
 
+<!-- CARTEL DE DESALOJO EN PARTE SUPERIOR -->
+<div id="evict-banner-top">
+  <span>⚠️ DESALOJAR:</span>
+  <span>PÁGINA <b id="evict-page-num">—</b></span>
+  <span class="evict-sub">(Búscala y tócala en los marcos de abajo)</span>
+</div>
+
+<!-- LRU/WS STACK -->
 <div id="lru-stack">
   <div id="lru-label">ORDEN LRU — izq = menos usada (🔴) → der = más usada (🟢)</div>
   <div id="lru-items"></div>
@@ -100,61 +194,83 @@
 
 <div id="result-msg"></div>
 
-<button id="tutorial-btn">❓ Tutorial</button>
 
+<!-- TUTORIAL MODAL -->
 <div id="tutorial-modal" class="oculto">
   <div id="tutorial-content">
     <h2>🎮 Cómo jugar — LRU Defender</h2>
-
     <div class="tut-section">
-      <h3>🧠 ¿Qué es LRU?</h3>
-      <p>LRU (Least Recently Used) es un algoritmo de reemplazo de páginas del sistema operativo. Cuando la memoria RAM está llena y llega una página nueva, se desaloja la que lleva <b>más tiempo sin usarse</b>.</p>
+      <h3>🧠 9 Marcos de Memoria</h3>
+      <p>La memoria tiene <b>9 marcos</b> en una cuadrícula 3×3. Cuando todos están ocupados y llega una página nueva, debés elegir cuál desalojar según el algoritmo activo.</p>
     </div>
-
     <div class="tut-section">
-      <h3>🎮 Objetivo</h3>
-      <p>Cada turno aparece una solicitud de página. Tu tarea es ayudar al sistema operativo a gestionar la memoria correctamente.</p>
-      <p><b>1.</b> Mirá qué página se solicita arriba.</p>
-      <p><b>2.</b> Si ya está en memoria → ¡acierto automático!</p>
-      <p><b>3.</b> Si hay marcos libres → se carga sola.</p>
-      <p><b>4.</b> Si la memoria está llena → <b>hacé clic (o tocá) la página que debe desalojarse</b>. Es la menos usada recientemente.</p>
+      <h3>📍 Solicitudes aleatorias</h3>
+      <p>Las solicitudes aparecen en distintas posiciones de la pantalla. El número de página siempre es legible y no tapa controles importantes.</p>
     </div>
-
     <div class="tut-section">
-      <h3>🎨 Colores = Orden de uso</h3>
-      <div class="color-row"><div class="color-dot" style="background:#f00"></div><p>🔴 Rojo = menos usada recientemente → <b>¡dispará esta!</b></p></div>
+      <h3>⚡ LRU — Least Recently Used</h3>
+      <p>Reemplaza la página que lleva <b>más tiempo sin usarse</b>. La lista inferior muestra el orden: izquierda = más antigua (🔴), derecha = más reciente (🟢).</p>
+      <div class="color-row"><div class="color-dot" style="background:#f00"></div><p>🔴 Rojo = menos usada → <b>¡desalojala!</b></p></div>
       <div class="color-row"><div class="color-dot" style="background:#ff0"></div><p>🟡 Amarillo = uso intermedio</p></div>
-      <div class="color-row"><div class="color-dot" style="background:#0f0"></div><p>🟢 Verde = usada recientemente → <b>no disparar</b></p></div>
-      <p>Las páginas se acomodan visualmente: la más vieja a la izquierda, la más nueva a la derecha.</p>
+      <div class="color-row"><div class="color-dot" style="background:#0f0"></div><p>🟢 Verde = reciente → <b>no desalojar</b></p></div>
     </div>
-
+    <div class="tut-section ws-section">
+      <h3>🌐 Working Set (WS)</h3>
+      <p>El <b>conjunto de trabajo</b> = páginas usadas en las últimas <b>W=5 referencias</b>. Páginas fuera de la ventana son candidatas a desalojo.</p>
+      <p><b>Política:</b> Si hay páginas fuera del WS → desalojar la más antigua de ellas. Si todas están dentro del WS → desalojar la menos recientemente usada (fallback LRU).</p>
+      <p>Páginas 🔴 fuera del WS, 🟢 dentro del WS.</p>
+    </div>
     <div class="tut-section">
-      <h3>🏆 Puntuación</h3>
-      <p>✅ Acierto (página ya en RAM): +10 pts</p>
-      <p>✅ Evicción correcta: +25 pts</p>
-      <p>❌ Evicción incorrecta: −20 de vida</p>
-      <p>⏰ Tiempo agotado: −15 de vida</p>
-      <p>🔥 Combo: multiplicá puntos si acertás seguido</p>
+      <h3>🎯 Dónde ver qué página desalojar</h3>
+      <p>Cuando la memoria se llena, la indicación <b>DESALOJAR</b> aparece <b>arriba en la pantalla</b> señalando qué página es la víctima según el algoritmo. ¡Debés mirar la barra inferior, identificar el número y buscarlo rápidamente en los recuadros de arriba para tocarlo!</p>
     </div>
-
     <div class="tut-section">
-      <h3>💡 Consejo</h3>
-      <p>Fijate en el color: si es roja, es la que lleva más tiempo sin usarse. Disparala antes de que se acabe el tiempo. Si disparás la página equivocada, perdés vida.</p>
+      <h3>🔄 Alternancia de Algoritmos</h3>
+      <p>El algoritmo activo (<b>LRU</b> o <b>WS</b>) cambia aleatoriamente entre turnos, visible siempre en el HUD. Nunca cambia a mitad de una decisión pendiente.</p>
     </div>
-
+    <div class="tut-section">
+      <h3>⚡ Ritmo Rápido y Reglas de Derrota</h3>
+      <p><b>Velocidad extrema:</b> las páginas fluyen rápido y cada acierto acelera aún más el juego.</p>
+      <p><b>💀 Límite de fallos:</b> Solo se permite <b>1 fallo consecutivo</b> (2 fallos seguidos = derrota inmediata). Además, acumular <b>3 fallos totales</b> también termina la partida.</p>
+    </div>
+    <div class="tut-section">
+      <h3>🏆 Puntuación y Ranking</h3>
+      <p>✅ Acierto: +10 pts · ✅ Evicción correcta: +25 pts · 🔥 Combo multiplica puntos</p>
+      <p>❌ Evicción incorrecta o ⏰ Timeout: cuenta como fallo y penaliza velocidad.</p>
+      <p>Al terminar tu resultado se guarda en el ranking local del dispositivo.</p>
+    </div>
+    <div class="tut-section">
+      <h3>📱 Jugar desde celular</h3>
+      <p>Escaneá el QR en la pantalla inicial. La interfaz es táctil. Tocá las páginas igual que harías clic.</p>
+      <p><i>Nota: el ranking es local en cada dispositivo hasta publicar el juego con backend compartido.</i></p>
+    </div>
     <button id="tutorial-close">¡Entendido, a jugar!</button>
   </div>
 </div>
 
+<!-- GAME OVER -->
 <div id="gameover" class="oculto">
   <h1>GAME OVER</h1>
-  <div class="info">
-    Puntaje final: <b id="go-score">0</b><br>
-    Nivel alcanzado: <b id="go-level">1</b><br>
-    Aciertos: <b id="go-hits">0</b> · Evicciones correctas: <b id="go-ec">0</b><br>
-    Tasa de aciertos: <b id="go-rate">0%</b>
+  <div id="go-result-card">
+    <div class="go-row"><span class="go-label">👤 Jugador</span><span class="go-val" id="go-player">—</span></div>
+    <div class="go-row"><span class="go-label">🎯 Puntaje final</span><span class="go-val" id="go-score">0</span></div>
+    <div class="go-row"><span class="go-label">📊 Nivel alcanzado</span><span class="go-val" id="go-level">1</span></div>
+    <div class="go-row"><span class="go-label">✅ Aciertos</span><span class="go-val" id="go-hits">0</span></div>
+    <div class="go-row"><span class="go-label">🎯 Evicciones OK</span><span class="go-val" id="go-ec">0</span></div>
+    <div class="go-row"><span class="go-label">📈 Tasa de aciertos</span><span class="go-val" id="go-rate">0%</span></div>
+    <div class="go-row"><span class="go-label">🏅 Posición en ranking</span><span class="go-val go-rank-pos" id="go-rank-pos">#—</span></div>
+    <div id="go-save-status"></div>
   </div>
-  <button id="reiniciar">REINTENTAR</button>
+  <div id="ranking-card">
+    <h3>🏆 RANKING LOCAL</h3>
+    <div id="ranking-warning">⚠️ Ranking guardado localmente en este dispositivo. Para ranking global, configurar backend al desplegar en Vercel.</div>
+    <div id="ranking-list"></div>
+  </div>
+  <div id="go-btns">
+    <button id="reiniciar">🔄 REINTENTAR</button>
+    <button id="go-ranking-btn">📋 VER RANKING</button>
+    <button id="go-tut-btn">📖 VER TUTORIAL</button>
+  </div>
 </div>
 
 <script type="importmap">
@@ -165,34 +281,69 @@
 import * as THREE from 'three';
 
 // ============================================================
+// URL DE PRODUCCIÓN — Completar al desplegar en Vercel
+// Formato: "https://tu-proyecto.vercel.app"
+// ============================================================
+const PRODUCTION_URL = '';
+
+// ============================================================
 // CONSTANTES
 // ============================================================
-const MAX_FRAMES = 3;
-const ARENA = 18;
-const POS_FRAMES = [-6, 0, 6];
+const MAX_FRAMES = 9;
+const ARENA = 28;
 const XP_POR_NIVEL = 100;
 
+// 9 marcos en cuadrícula 3×3: separación X=7, Z=7.5
+const POS_FRAMES = [];
+for (let row = 0; row < 3; row++) {
+  for (let col = 0; col < 3; col++) {
+    POS_FRAMES.push({ x: (col - 1) * 7, z: (row - 1) * 7.5 });
+  }
+}
+
+/**
+ * DIFICULTAD DINÁMICA
+ * ──────────────────────────────────────────────────────────
+ * Fórmula tras ACIERTO o EVICCIÓN CORRECTA:
+ *   timerDinamicoMs = max(MIN_TIMER, timerDinamicoMs × FACTOR_ACIERTO)
+ *   FACTOR_ACIERTO = 0.96  → cada acierto reduce 4% el tiempo de decisión
+ *
+ * Fórmula tras ERROR o TIMEOUT (penalización):
+ *   Al siguiente turno de decisión: timer = max(MIN_TIMER, timerBase(nivel) × 0.5)
+ *   Es decir, la mitad del tiempo de referencia del nivel actual.
+ *
+ * Límites:
+ *   MIN_TIMER = 1300 ms  (nunca por debajo de este valor)
+ *   MAX_TIMER = 4000 ms  (máximo posible al inicio)
+ *
+ * Los tiempos de presentación (200ms) y resultado (340ms) son ultra rápidos y ágiles.
+ */
+const MIN_TIMER = 1300;
+const MAX_TIMER = 4000;
+const FACTOR_ACIERTO = 0.95;
+
+// Ventana de referencias para Working Set
+const WS_WINDOW = 5;
+
 const NIVELES = [
-  { maxPage: 5,  timerMs: 5000, color: 0x00e5ff },
-  { maxPage: 6,  timerMs: 4500, color: 0x00ffa6 },
-  { maxPage: 7,  timerMs: 4200, color: 0xa0ff00 },
-  { maxPage: 8,  timerMs: 3800, color: 0xffea00 },
-  { maxPage: 9,  timerMs: 3500, color: 0xff9800 },
-  { maxPage: 10, timerMs: 3200, color: 0xff5500 },
-  { maxPage: 12, timerMs: 3000, color: 0xff2200 },
-  { maxPage: 14, timerMs: 2800, color: 0xff0044 },
+  { maxPage: 12, timerMs: 3600, color: 0x00e5ff },
+  { maxPage: 14, timerMs: 3200, color: 0x00ffa6 },
+  { maxPage: 16, timerMs: 2900, color: 0xa0ff00 },
+  { maxPage: 18, timerMs: 2600, color: 0xffea00 },
+  { maxPage: 20, timerMs: 2300, color: 0xff9800 },
+  { maxPage: 22, timerMs: 2000, color: 0xff5500 },
+  { maxPage: 25, timerMs: 1800, color: 0xff2200 },
+  { maxPage: 30, timerMs: 1600, color: 0xff0044 },
 ];
+
 function cfgNivel(n) {
   const i = Math.min(n - 1, NIVELES.length - 1);
   const b = NIVELES[i];
   const extra = Math.max(0, n - NIVELES.length);
-  return { maxPage: b.maxPage + extra, timerMs: Math.max(2000, b.timerMs - extra * 150), color: b.color };
+  return { maxPage: b.maxPage + extra, timerMs: Math.max(MIN_TIMER, b.timerMs - extra * 100), color: b.color };
 }
 
-const TIEMPOS = {
-  mostrarRequest: 1000,
-  resultado: 1400,
-};
+const TIEMPOS = { mostrarRequest: 200, resultado: 340 };
 
 // ============================================================
 // THREE.JS SETUP
@@ -210,516 +361,789 @@ renderer.domElement.style.inset = '0';
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x05060d);
-scene.fog = new THREE.Fog(0x05060d, 25, 55);
+scene.fog = new THREE.Fog(0x05060d, 32, 72);
 
-const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 100);
-camera.position.set(0, 20, 16);
+// Cámara elevada para ver cuadrícula 3×3
+const isPortraitInitial = innerHeight > innerWidth;
+const camera = new THREE.PerspectiveCamera(isPortraitInitial ? 66 : 50, innerWidth / innerHeight, 0.1, 120);
+camera.position.set(0, isPortraitInitial ? 34 : 26, isPortraitInitial ? 29 : 22);
 camera.lookAt(0, 0, 0);
 
-// luces
-scene.add(new THREE.AmbientLight(0x334466, 0.9));
-const dirLight = new THREE.DirectionalLight(0xaaddff, 1.3);
-dirLight.position.set(12, 25, 10);
+function actualizarCamaraAspecto() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.fov = isPortrait ? 66 : 50;
+  camera.updateProjectionMatrix();
+}
+
+scene.add(new THREE.AmbientLight(0x334466, 0.85));
+const dirLight = new THREE.DirectionalLight(0xaaddff, 1.2);
+dirLight.position.set(15, 30, 12);
 dirLight.castShadow = true;
 dirLight.shadow.mapSize.set(1024, 1024);
-dirLight.shadow.camera.left = -20;
-dirLight.shadow.camera.right = 20;
-dirLight.shadow.camera.top = 20;
-dirLight.shadow.camera.bottom = -20;
+dirLight.shadow.camera.left = -28; dirLight.shadow.camera.right = 28;
+dirLight.shadow.camera.top = 28; dirLight.shadow.camera.bottom = -28;
 scene.add(dirLight);
-scene.add(new THREE.HemisphereLight(0x0088ff, 0x001122, 0.5));
-const colorLight = new THREE.PointLight(0x00ffff, 1.5, 50);
-colorLight.position.set(0, 10, 0);
+scene.add(new THREE.HemisphereLight(0x0088ff, 0x001122, 0.45));
+const colorLight = new THREE.PointLight(0x00ffff, 1.4, 60);
+colorLight.position.set(0, 12, 0);
 scene.add(colorLight);
 
-// ============================================================
-// ENTORNO
-// ============================================================
+// Entorno
 const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(ARENA * 2, ARENA * 2, 30, 30),
+  new THREE.PlaneGeometry(ARENA * 2, ARENA * 2, 40, 40),
   new THREE.MeshStandardMaterial({ color: 0x0a1428, roughness: 0.8, metalness: 0.4, emissive: 0x001122, emissiveIntensity: 0.3 })
 );
-floor.rotation.x = -Math.PI / 2;
-floor.receiveShadow = true;
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
 scene.add(floor);
-
-const grid = new THREE.GridHelper(ARENA * 2, 30, 0x00ccff, 0x003355);
-grid.position.y = 0.01;
-grid.material.opacity = 0.25;
-grid.material.transparent = true;
+const grid = new THREE.GridHelper(ARENA * 2, 38, 0x00ccff, 0x003355);
+grid.position.y = 0.01; grid.material.opacity = 0.18; grid.material.transparent = true;
 scene.add(grid);
 
 // ============================================================
 // AUDIO
 // ============================================================
 let audioCtx;
-function initAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-}
+function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
 function playTone(freq, dur, type = 'sine', vol = 0.12) {
   if (!audioCtx) return;
   const o = audioCtx.createOscillator();
   const g = audioCtx.createGain();
-  o.type = type;
-  o.frequency.value = freq;
-  g.gain.value = vol;
+  o.type = type; o.frequency.value = freq; g.gain.value = vol;
   g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
   o.connect(g); g.connect(audioCtx.destination);
   o.start(); o.stop(audioCtx.currentTime + dur);
 }
 const sfx = {
-  acierto: () => { playTone(660, 0.1); setTimeout(() => playTone(880, 0.12), 60); },
-  fallo: () => playTone(440, 0.12),
-  correcto: () => { playTone(523, 0.08); setTimeout(() => playTone(659, 0.08), 60); setTimeout(() => playTone(784, 0.15), 120); },
-  error: () => { playTone(200, 0.25, 'sawtooth', 0.1); setTimeout(() => playTone(150, 0.2, 'sawtooth', 0.08), 80); },
-  timeout: () => playTone(150, 0.35, 'square', 0.08),
-  nivel: () => { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playTone(f, 0.1), i * 70)); },
-  disparo: () => playTone(1200, 0.05, 'square', 0.06),
+  acierto: () => { playTone(660,0.1); setTimeout(()=>playTone(880,0.12),60); },
+  fallo: () => playTone(440,0.12),
+  correcto: () => { playTone(523,0.08); setTimeout(()=>playTone(659,0.08),60); setTimeout(()=>playTone(784,0.15),120); },
+  error: () => { playTone(200,0.25,'sawtooth',0.1); setTimeout(()=>playTone(150,0.2,'sawtooth',0.08),80); },
+  timeout: () => playTone(150,0.35,'square',0.08),
+  nivel: () => { [523,659,784,1047].forEach((f,i)=>setTimeout(()=>playTone(f,0.1),i*70)); },
+  disparo: () => playTone(1200,0.05,'square',0.06),
+  wsAlert: () => { playTone(350,0.08,'triangle'); setTimeout(()=>playTone(500,0.1,'triangle'),90); },
 };
 
 // ============================================================
 // TEXTURAS Y MESHES
 // ============================================================
 function crearTexturaPagina(num) {
-  const c = document.createElement('canvas');
-  c.width = 256; c.height = 256;
+  const c = document.createElement('canvas'); c.width = 512; c.height = 512;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = '#0a0a2e';
-  ctx.fillRect(0, 0, 256, 256);
-  ctx.strokeStyle = '#00ffff';
-  ctx.lineWidth = 6;
-  ctx.strokeRect(8, 8, 240, 240);
+
+  // Fondo oscuro con degradado radial de alto contraste
+  const grad = ctx.createRadialGradient(256, 256, 40, 256, 256, 270);
+  grad.addColorStop(0, '#0f244a');
+  grad.addColorStop(0.75, '#050c1e');
+  grad.addColorStop(1, '#02050f');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 512, 512);
+
+  // Marco exterior neón
+  ctx.strokeStyle = '#00e5ff';
+  ctx.lineWidth = 14;
+  ctx.strokeRect(14, 14, 484, 484);
+
+  // Esquinas de acento luminosas
+  ctx.fillStyle = '#00ff88';
+  ctx.fillRect(10, 10, 40, 14); ctx.fillRect(10, 10, 14, 40);
+  ctx.fillRect(462, 10, 40, 14); ctx.fillRect(488, 10, 14, 40);
+  ctx.fillRect(10, 488, 40, 14); ctx.fillRect(10, 462, 14, 40);
+  ctx.fillRect(462, 488, 40, 14); ctx.fillRect(488, 462, 14, 40);
+
+  // Placa central oscura para máximo contraste
+  ctx.fillStyle = 'rgba(0, 15, 35, 0.88)';
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(38, 46, 436, 348, 22);
+  else ctx.rect(38, 46, 436, 348);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0, 229, 255, 0.45)';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  // NÚMERO GIGANTE Y ULTRA RESALTADO
+  ctx.font = '900 250px "Segoe UI", Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // Sombra / glow neón
+  ctx.shadowColor = '#00e5ff';
+  ctx.shadowBlur = 30;
+
+  // Contorno exterior negro grueso para contraste absoluto
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = 26;
+  ctx.strokeText(String(num), 256, 215);
+
+  // Relleno blanco brillante puro
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 140px Arial';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(String(num), 128, 110);
-  ctx.fillStyle = '#666688';
-  ctx.font = '26px Arial';
-  ctx.fillText('PÁGINA', 128, 210);
-  return new THREE.CanvasTexture(c);
+  ctx.fillText(String(num), 256, 215);
+
+  // Reset shadow
+  ctx.shadowBlur = 0;
+
+  // Badge inferior "PÁGINA"
+  ctx.fillStyle = 'rgba(0, 229, 255, 0.15)';
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(130, 416, 252, 60, 14);
+  else ctx.rect(130, 416, 252, 60);
+  ctx.fill();
+  ctx.strokeStyle = '#00e5ff';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.fillStyle = '#00e5ff';
+  ctx.font = '800 28px "Segoe UI", Arial, sans-serif';
+  ctx.fillText('PÁGINA', 256, 448);
+
+  const tex = new THREE.CanvasTexture(c);
+  if (renderer && renderer.capabilities) {
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  }
+  return tex;
 }
 
-// Marcos de memoria
+// 9 marcos — cuadrícula 3×3
 const marcos = [];
 for (let i = 0; i < MAX_FRAMES; i++) {
   const g = new THREE.Group();
-  const baseMat = new THREE.MeshStandardMaterial({ color: 0x001133, emissive: 0x0088ff, emissiveIntensity: 0.25, transparent: true, opacity: 0.5 });
-  const base = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.25, 3.2), baseMat);
-  base.position.y = 0.125;
-  base.receiveShadow = true;
-  g.add(base);
-
-  const ringMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, side: THREE.DoubleSide, transparent: true, opacity: 0.25 });
-  const ring = new THREE.Mesh(new THREE.RingGeometry(1.5, 1.75, 32), ringMat);
-  ring.rotation.x = -Math.PI / 2;
-  ring.position.y = 0.26;
-  g.add(ring);
-
-  // label "MARCO n"
-  const lc = document.createElement('canvas');
-  lc.width = 256; lc.height = 64;
+  const baseMat = new THREE.MeshStandardMaterial({ color:0x001133, emissive:0x0088ff, emissiveIntensity:0.2, transparent:true, opacity:0.55 });
+  const base = new THREE.Mesh(new THREE.BoxGeometry(2.8,0.18,2.8), baseMat);
+  base.position.y = 0.09; base.receiveShadow = true; g.add(base);
+  const ringMat = new THREE.MeshBasicMaterial({ color:0x00ffff, side:THREE.DoubleSide, transparent:true, opacity:0.2 });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(1.1,1.3,32), ringMat);
+  ring.rotation.x = -Math.PI/2; ring.position.y = 0.19; g.add(ring);
+  const lc = document.createElement('canvas'); lc.width=512; lc.height=128;
   const lctx = lc.getContext('2d');
-  lctx.fillStyle = '#0088ff';
-  lctx.font = 'bold 28px Arial';
-  lctx.textAlign = 'center';
-  lctx.fillText(`MARCO ${i + 1}`, 128, 36);
+  lctx.fillStyle='rgba(0, 15, 35, 0.7)';
+  lctx.fillRect(0,0,512,128);
+  lctx.strokeStyle='rgba(0,229,255,0.45)';
+  lctx.lineWidth=6;
+  lctx.strokeRect(6,6,500,116);
+  lctx.fillStyle='#00e5ff';
+  lctx.font='900 52px "Segoe UI", Arial, sans-serif';
+  lctx.textAlign='center';
+  lctx.textBaseline='middle';
+  lctx.fillText(`M${i+1}`, 256, 64);
   const ltex = new THREE.CanvasTexture(lc);
-  const lmat = new THREE.MeshBasicMaterial({ map: ltex, transparent: true, opacity: 0.5 });
-  const label = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 0.6), lmat);
-  label.rotation.x = -Math.PI / 2;
-  label.position.y = 0.02;
-  label.position.z = 2;
-  g.add(label);
-
-  g.position.x = POS_FRAMES[i];
+  const lmat = new THREE.MeshBasicMaterial({ map:ltex, transparent:true, opacity:0.55 });
+  const label = new THREE.Mesh(new THREE.PlaneGeometry(1.8,0.5), lmat);
+  label.rotation.x = -Math.PI/2; label.position.y = 0.02; label.position.z = 1.6; g.add(label);
+  g.position.x = POS_FRAMES[i].x; g.position.z = POS_FRAMES[i].z;
   scene.add(g);
-  marcos.push({ grupo: g, baseMat, ringMat, pagina: null });
+  marcos.push({ grupo:g, baseMat, ringMat, pagina:null });
 }
 
-// Pool de páginas (una por número de página posible)
-const poolPaginas = new Map(); // num -> grupo THREE
+const poolPaginas = new Map();
 
 function crearMeshPagina(num) {
   const g = new THREE.Group();
   const tex = crearTexturaPagina(num);
-  const mat = new THREE.MeshStandardMaterial({ map: tex, emissive: 0x00ffff, emissiveIntensity: 0.4, roughness: 0.3, metalness: 0.6 });
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.2, 0.3), mat);
-  mesh.position.y = 1.6;
+  const mat = new THREE.MeshStandardMaterial({ map:tex, emissive:0x00ffff, emissiveIntensity:0.25, roughness:0.2, metalness:0.3 });
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(2.05,2.05,0.28), mat);
+  mesh.position.y = 1.35;
+  mesh.rotation.x = -0.38; // Inclinación directa hacia la cámara para máxima visibilidad frontal
   mesh.castShadow = true;
   g.add(mesh);
-
-  const glowMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.1 });
-  const glow = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.5, 0.08), glowMat);
-  glow.position.y = 1.6;
+  const glowMat = new THREE.MeshBasicMaterial({ color:0x00ffff, transparent:true, opacity:0.12 });
+  const glow = new THREE.Mesh(new THREE.BoxGeometry(2.28,2.28,0.1), glowMat);
+  glow.position.y = 1.35;
+  glow.rotation.x = -0.38;
   g.add(glow);
-
-  g.userData = { mesh, mat, glowMat, glow, num, lastUsed: 0, targetX: 0, targetY: 1.6 };
+  g.userData = { mesh, mat, glowMat, glow, num, lastUsed:0, targetX:0, targetZ:0, targetY:1.35 };
   return g;
 }
+
 
 // ============================================================
 // PARTÍCULAS
 // ============================================================
 const particulas = [];
-const partGeo = new THREE.SphereGeometry(0.1, 6, 6);
-function explosion(x, y, z, color, cant = 12, pot = 4) {
-  for (let i = 0; i < cant; i++) {
-    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 });
+const partGeo = new THREE.SphereGeometry(0.09,6,6);
+function explosion(x,y,z,color,cant=12,pot=4) {
+  for (let i=0;i<cant;i++) {
+    const mat = new THREE.MeshBasicMaterial({ color, transparent:true, opacity:1 });
     const m = new THREE.Mesh(partGeo, mat);
-    m.position.set(x, y, z);
-    const ang = Math.random() * Math.PI * 2;
-    const phi = Math.random() * Math.PI - Math.PI / 2;
-    const vel = 1 + Math.random() * pot;
+    m.position.set(x,y,z);
+    const ang=Math.random()*Math.PI*2, phi=Math.random()*Math.PI-Math.PI/2;
+    const vel=1+Math.random()*pot;
     scene.add(m);
-    particulas.push({ mesh: m, mat, vx: Math.cos(ang) * Math.cos(phi) * vel, vy: Math.sin(phi) * vel + 1.5, vz: Math.sin(ang) * Math.cos(phi) * vel, vida: 25 + Math.random() * 15, vidaMax: 35 });
+    particulas.push({ mesh:m, mat, vx:Math.cos(ang)*Math.cos(phi)*vel, vy:Math.sin(phi)*vel+1.5, vz:Math.sin(ang)*Math.cos(phi)*vel, vida:25+Math.random()*15, vidaMax:35 });
   }
+}
+
+// ============================================================
+// HISTORIAL DE REFERENCIAS (Working Set)
+// ============================================================
+const referencHistory = [];
+function registrarReferencia(pageNum) {
+  referencHistory.push(pageNum);
+  if (referencHistory.length > 30) referencHistory.shift();
+}
+function calcularWorkingSet() {
+  return new Set(referencHistory.slice(-WS_WINDOW));
 }
 
 // ============================================================
 // ESTADO
 // ============================================================
+let nombreJugador = '';
 const estado = {
-  vida: 100, puntos: 0, xp: 0, nivel: 1,
-  aciertos: 0, fallos: 0, eviccionesCorrectas: 0, eviccionesIncorrectas: 0,
-  combo: 1, ultimoAcierto: 0,
-  frame: 0, vivo: true,
-  modo: 'idle', // idle | mostrando | decidiendo | resultado
-  requestActual: null,
-  timerInicio: 0, timerDuracion: 5000,
-  screenShake: 0,
+  vida:3, puntos:0, xp:0, nivel:1,
+  aciertos:0, fallos:0, eviccionesCorrectas:0, eviccionesIncorrectas:0,
+  fallosConsecutivos:0,
+  fallosTotales:0,
+  combo:1, ultimoAcierto:0,
+  frame:0, vivo:true,
+  modo:'idle',
+  requestActual:null,
+  timerInicio:0,
+  timerDinamicoMs:3600,
+  duracionDecisionActual:3600,
+  penalizacionActiva:false,
+  algoritmoActual:'LRU',
+  screenShake:0,
+  victimaActual:null,
+  startTime:0,
 };
+
+// ============================================================
+// POSICIONAMIENTO CENTRADO DEL BANNER SUPERIOR
+// ============================================================
+function centrarBannerSuperior(banner) {
+  banner.style.top = '52px';
+  banner.style.left = '50%';
+  banner.style.transform = 'translateX(-50%)';
+}
 
 // ============================================================
 // UI REFS
 // ============================================================
-const $ = id => document.getElementById(id);
-const scoreEl = $('score'), comboEl = $('combo'), hpEl = $('hp'), levelEl = $('level');
-const requestBanner = $('request-banner'), requestPage = $('request-page');
-const timerContainer = $('timer-container'), timerBar = $('timer-bar');
-const resultMsg = $('result-msg');
-const lruItems = $('lru-items');
-const flashEl = $('flash');
-const gameoverEl = $('gameover');
+const $=id=>document.getElementById(id);
+const scoreEl=$('score'), comboEl=$('combo'), hpEl=$('hp'), levelEl=$('level');
+const requestBanner=$('request-banner'), requestPage=$('request-page');
+const timerContainer=$('timer-container'), timerBar=$('timer-bar');
+const resultMsg=$('result-msg');
+const lruItems=$('lru-items');
+const flashEl=$('flash');
+const gameoverEl=$('gameover');
+const algoBadge=$('algo-badge');
+const playerBadge=$('player-badge');
+const evictBannerTop=$('evict-banner-top'), evictPageNum=$('evict-page-num');
+const lruLabel=$('lru-label');
 
-function mostrarResultado(texto, tipo) {
-  const colores = { hit: '#0f0', miss: '#ff0', correct: '#0f0', wrong: '#f00', timeout: '#f80', decide: '#f80' };
-  resultMsg.textContent = texto;
-  resultMsg.style.color = colores[tipo] || '#fff';
+function mostrarResultado(texto,tipo) {
+  const colores={hit:'#0f0',miss:'#ff0',correct:'#0f0',wrong:'#f00',timeout:'#f80',decide:'#f80'};
+  resultMsg.textContent=texto; resultMsg.style.color=colores[tipo]||'#fff';
   resultMsg.classList.add('show');
   clearTimeout(resultMsg._t);
-  resultMsg._t = setTimeout(() => resultMsg.classList.remove('show'), TIEMPOS.resultado - 100);
+  resultMsg._t=setTimeout(()=>resultMsg.classList.remove('show'),TIEMPOS.resultado-100);
 }
 
 function flash(color) {
-  flashEl.style.background = color;
-  flashEl.style.opacity = '0.3';
-  setTimeout(() => flashEl.style.opacity = '0', 100);
+  flashEl.style.background=color; flashEl.style.opacity='0.3';
+  setTimeout(()=>flashEl.style.opacity='0',100);
 }
 
 function actualizarHUD() {
-  scoreEl.textContent = estado.puntos;
-  comboEl.textContent = estado.combo;
-  hpEl.textContent = Math.max(0, estado.vida);
-  levelEl.textContent = estado.nivel;
-  $('s-hits').textContent = estado.aciertos;
-  $('s-misses').textContent = estado.fallos;
-  $('s-ec').textContent = estado.evicionesCorrectas;
-  $('s-ew').textContent = estado.evicionesIncorrectas;
+  scoreEl.textContent=estado.puntos; comboEl.textContent=estado.combo;
+  const vidas = Math.max(0, 3 - estado.fallosTotales);
+  let hearts = '❤️'.repeat(vidas) + '🖤'.repeat(3 - vidas);
+  if (estado.fallosConsecutivos === 1) {
+    hearts += ` <span style="color:#ff3355;font-size:10px;font-weight:900;margin-left:4px">⚠️ ¡1 FALLO SEGUIDO!</span>`;
+  }
+  hpEl.innerHTML=hearts;
+  levelEl.textContent=estado.nivel;
+  $('s-hits').textContent=estado.aciertos;
+  $('s-misses').textContent=estado.fallos;
+  $('s-ec').textContent=estado.eviccionesCorrectas;
+  $('s-ew').textContent=`${estado.fallosTotales}/3 (cons: ${estado.fallosConsecutivos}/2)`;
+  playerBadge.textContent=nombreJugador?`👤 ${nombreJugador}`:'';
+}
+
+function actualizarAlgoBadge() {
+  algoBadge.textContent=estado.algoritmoActual;
+  algoBadge.className=estado.algoritmoActual==='LRU'?'lru':'ws';
+  algoBadge.id='algo-badge';
+  lruLabel.textContent=estado.algoritmoActual==='LRU'
+    ?'ORDEN LRU — izq = menos usada (🔴) → der = más usada (🟢)'
+    :`WORKING SET (W=${WS_WINDOW}) — 🔴 fuera del WS → candidata a desalojo`;
 }
 
 // ============================================================
 // LRU LÓGICA
 // ============================================================
 function paginasCargadas() {
-  return marcos.filter(m => m.pagina).sort((a, b) => a.pagina.userData.lastUsed - b.pagina.userData.lastUsed);
+  return marcos.filter(m=>m.pagina).sort((a,b)=>a.pagina.userData.lastUsed-b.pagina.userData.lastUsed);
+}
+
+/**
+ * Determina la víctima según el algoritmo activo.
+ * LRU: menor lastUsed.
+ * WS: más antigua fuera del WS; si todas en WS → fallback LRU.
+ */
+function determinarVictima() {
+  const orden=paginasCargadas();
+  if (orden.length===0) return null;
+  if (estado.algoritmoActual==='LRU') return orden[0];
+  const ws=calcularWorkingSet();
+  const fueraWS=orden.filter(m=>!ws.has(m.pagina.userData.num));
+  return fueraWS.length>0
+    ? fueraWS.sort((a,b)=>a.pagina.userData.lastUsed-b.pagina.userData.lastUsed)[0]
+    : orden[0];
 }
 
 function actualizarOrdenLRU() {
-  const orden = paginasCargadas();
-  orden.forEach((marco, i) => {
-    const p = marco.pagina.userData;
-    p.targetX = POS_FRAMES[i];
-    const t = orden.length <= 1 ? 1 : i / (orden.length - 1);
-    const hue = t * 0.33;
-    const col = new THREE.Color().setHSL(hue, 1, 0.45);
-    p.mat.emissive.copy(col);
-    p.glowMat.color.copy(col);
-    p.mat.emissiveIntensity = 0.4 + t * 0.3;
+  const orden=paginasCargadas();
+  const ws=calcularWorkingSet();
+  const victima=determinarVictima();
+
+  // Coloración de páginas
+  orden.forEach((marco,i)=>{
+    const p=marco.pagina.userData;
+    const t=orden.length<=1?1:i/(orden.length-1);
+    let hue;
+    if (estado.algoritmoActual==='WS') {
+      hue=ws.has(p.num)?0.3:0.0;
+    } else {
+      hue=t*0.33;
+    }
+    const col=new THREE.Color().setHSL(hue,1,0.45);
+    p.mat.emissive.copy(col); p.glowMat.color.copy(col);
+    p.mat.emissiveIntensity=0.35+t*0.3;
   });
 
-  // 2D stack
-  lruItems.innerHTML = '';
-  orden.forEach((marco, i) => {
-    const t = orden.length <= 1 ? 1 : i / (orden.length - 1);
-    const hue = Math.round(t * 0.33 * 360);
-    const chip = document.createElement('div');
-    chip.className = 'lru-chip';
-    chip.textContent = marco.pagina.userData.num;
-    chip.style.color = `hsl(${hue},100%,60%)`;
-    chip.style.borderColor = `hsl(${hue},100%,40%)`;
-    chip.style.background = `hsla(${hue},100%,50%,0.1)`;
+  // Iluminación uniforme sin delatar la víctima en los marcos de arriba
+  marcos.forEach(marco=>{
+    marco.ringMat.color.setHex(0x00ffff); marco.ringMat.opacity=0.25;
+    marco.baseMat.emissive.setHex(0x0088ff); marco.baseMat.emissiveIntensity=0.25;
+  });
+
+  // Fila inferior de orden LRU / WS
+  lruItems.innerHTML='';
+  orden.forEach((marco,i)=>{
+    const t=orden.length<=1?1:i/(orden.length-1);
+    const wsSet=calcularWorkingSet();
+    const pNum=marco.pagina.userData.num;
+    const esVictima=(victima&&marco===victima);
+    const chip=document.createElement('div');
+    chip.className='lru-chip';
+
+    if (estado.algoritmoActual==='WS') {
+      const enWS=wsSet.has(pNum);
+      if (esVictima) {
+        chip.innerHTML=`<span style="font-size:16px;font-weight:900">${pNum}</span><span class="lru-chip-evict-tag">DESALOJAR</span>`;
+        chip.style.color='#fff'; chip.style.borderColor='#ff2255'; chip.style.background='rgba(255,34,85,0.4)'; chip.style.boxShadow='0 0 14px rgba(255,34,85,0.7)';
+      } else if (enWS) {
+        chip.innerHTML=`<span>${pNum}</span><span style="font-size:10px;color:#00ff88;margin-left:3px">(WS)</span>`;
+        chip.style.color='#00ff88'; chip.style.borderColor='rgba(0,255,136,0.6)'; chip.style.background='rgba(0,255,136,0.12)';
+      } else {
+        chip.innerHTML=`<span>${pNum}</span><span style="font-size:10px;color:#ff8866;margin-left:3px">(OUT)</span>`;
+        chip.style.color='#ff6644'; chip.style.borderColor='rgba(255,102,68,0.6)'; chip.style.background='rgba(255,102,68,0.15)';
+      }
+    } else {
+      const hue=Math.round(t*0.33*360);
+      if (esVictima) {
+        chip.innerHTML=`<span style="font-size:16px;font-weight:900">${pNum}</span><span class="lru-chip-evict-tag">DESALOJAR</span>`;
+        chip.style.color='#fff'; chip.style.borderColor='#ff2255'; chip.style.background='rgba(255,34,85,0.4)'; chip.style.boxShadow='0 0 14px rgba(255,34,85,0.7)';
+      } else {
+        chip.textContent=String(pNum);
+        chip.style.color=`hsl(${hue},100%,60%)`; chip.style.borderColor=`hsl(${hue},100%,40%)`; chip.style.background=`hsla(${hue},100%,50%,0.1)`;
+      }
+    }
     lruItems.appendChild(chip);
   });
+
+  actualizarVictimaIndicador(victima);
+}
+
+// ============================================================
+// INDICADOR DE DESALOJO INFERIOR (palabra DESALOJAR abajo, no en los recuadros)
+// ============================================================
+function actualizarVictimaIndicador(victima) {
+  estado.victimaActual=victima;
+  if (!victima||!victima.pagina||estado.modo!=='decidiendo') {
+    if (evictBannerTop) evictBannerTop.classList.remove('show');
+    return;
+  }
+  if (evictBannerTop && evictPageNum) {
+    evictPageNum.textContent = victima.pagina.userData.num;
+    evictBannerTop.classList.add('show');
+  }
+}
+
+function ocultarVictimaIndicador() {
+  if (evictBannerTop) evictBannerTop.classList.remove('show');
 }
 
 // ============================================================
 // GAME FLOW
 // ============================================================
-let tiempoDesdeUltimaAccion = 0;
+function elegirAlgoritmo() {
+  const probWS=Math.min(0.45,0.08+estado.nivel*0.04);
+  estado.algoritmoActual=Math.random()<probWS?'WS':'LRU';
+  actualizarAlgoBadge();
+  if (estado.algoritmoActual==='WS') sfx.wsAlert();
+}
 
 function generarSolicitud() {
-  const cargadas = paginasCargadas().map(m => m.pagina.userData.num);
-  const maxP = cfgNivel(estado.nivel).maxPage;
+  const cargadas=paginasCargadas().map(m=>m.pagina.userData.num);
+  const maxP=Math.max(MAX_FRAMES+3, cfgNivel(estado.nivel).maxPage);
 
-  if (cargadas.length < MAX_FRAMES) {
-    let num;
-    do { num = Math.floor(Math.random() * maxP) + 1; } while (cargadas.includes(num));
-    return num;
+  // Si ya hay páginas cargadas, con 35% de probabilidad generamos un HIT
+  if (cargadas.length>2 && Math.random()<0.35) {
+    return cargadas[Math.floor(Math.random()*cargadas.length)];
   }
-  if (Math.random() < 0.35) {
-    return cargadas[Math.floor(Math.random() * cargadas.length)];
+
+  // Si hay marcos libres, priorizar una página no cargada
+  if (cargadas.length<MAX_FRAMES) {
+    const noCargadas=[];
+    for (let p=1; p<=maxP; p++) {
+      if (!cargadas.includes(p)) noCargadas.push(p);
+    }
+    if (noCargadas.length>0) {
+      return noCargadas[Math.floor(Math.random()*noCargadas.length)];
+    }
   }
-  let num;
-  do { num = Math.floor(Math.random() * maxP) + 1; } while (cargadas.includes(num));
-  return num;
+
+  // Si la memoria está llena, preferir generar una página que force evicción
+  const fueraMemoria=[];
+  for (let p=1; p<=maxP; p++) {
+    if (!cargadas.includes(p)) fueraMemoria.push(p);
+  }
+  if (fueraMemoria.length>0) {
+    return fueraMemoria[Math.floor(Math.random()*fueraMemoria.length)];
+  }
+
+  return Math.floor(Math.random()*maxP)+1;
+}
+
+function calcularTimerEfectivo(aplicarPenalizacion=false) {
+  if (aplicarPenalizacion) {
+    return Math.max(MIN_TIMER, cfgNivel(estado.nivel).timerMs*0.5);
+  }
+  return Math.min(MAX_TIMER, Math.max(MIN_TIMER, estado.timerDinamicoMs));
 }
 
 function siguienteSolicitud() {
   if (!estado.vivo) return;
-  estado.modo = 'mostrando';
-  estado.requestActual = generarSolicitud();
-  requestPage.textContent = estado.requestActual;
+  elegirAlgoritmo();
+  estado.modo='mostrando';
+  estado.requestActual=generarSolicitud();
+  requestPage.textContent=estado.requestActual;
+  const hint=$('request-algo-hint');
+  if (estado.algoritmoActual==='WS') {
+    hint.textContent=`⚙️ Working Set (W=${WS_WINDOW})`;
+    hint.style.display='block';
+  } else {
+    hint.textContent=''; hint.style.display='none';
+  }
+  centrarBannerSuperior(requestBanner);
   requestBanner.classList.add('show');
   timerContainer.classList.remove('show');
-
-  setTimeout(() => {
-    if (!estado.vivo) return;
-    procesarSolicitud(estado.requestActual);
-  }, TIEMPOS.mostrarRequest);
+  ocultarVictimaIndicador();
+  setTimeout(()=>{ if(!estado.vivo)return; procesarSolicitud(estado.requestActual); }, TIEMPOS.mostrarRequest);
 }
 
 function procesarSolicitud(num) {
-  const marcoConPagina = marcos.find(m => m.pagina && m.pagina.userData.num === num);
+  registrarReferencia(num);
+  const marcoConPagina=marcos.find(m=>m.pagina&&m.pagina.userData.num===num);
 
   if (marcoConPagina) {
-    // HIT
-    estado.modo = 'resultado';
-    marcoConPagina.pagina.userData.lastUsed = Date.now();
-    // bounce animation
-    marcoConPagina.pagina.userData.targetY = 2.8;
-    setTimeout(() => { if (marcoConPagina.pagina) marcoConPagina.pagina.userData.targetY = 1.6; }, 200);
+    // HIT: Resetea racha de fallos consecutivos
+    estado.fallosConsecutivos=0;
+    estado.modo='resultado';
+    marcoConPagina.pagina.userData.lastUsed=Date.now();
+    marcoConPagina.pagina.userData.targetY=2.4;
+    setTimeout(()=>{ if(marcoConPagina.pagina) marcoConPagina.pagina.userData.targetY=1.35; },100);
     actualizarOrdenLRU();
-    estado.aciertos++;
-    estado.puntos += 10 * estado.combo;
-    estado.xp += 5;
-    estado.combo = Math.min(estado.combo + 1, 8);
-    estado.ultimoAcierto = Date.now();
-    mostrarResultado(`✅ ACIERTO — Página ${num} ya estaba en memoria`, 'hit');
-    sfx.acierto();
-    flash('#0f0');
-    actualizarHUD();
-    verificarNivel();
+    estado.aciertos++; estado.puntos+=10*estado.combo; estado.xp+=5;
+    estado.combo=Math.min(estado.combo+1,8); estado.ultimoAcierto=Date.now();
+    estado.timerDinamicoMs=Math.max(MIN_TIMER,estado.timerDinamicoMs*FACTOR_ACIERTO);
+    estado.penalizacionActiva=false;
+    mostrarResultado(`✅ ACIERTO — Página ${num} en memoria`,'hit');
+    sfx.acierto(); flash('#0f0'); actualizarHUD(); verificarNivel();
     requestBanner.classList.remove('show');
-    setTimeout(siguienteSolicitud, TIEMPOS.resultado);
+    setTimeout(siguienteSolicitud,TIEMPOS.resultado);
 
-  } else if (marcos.some(m => !m.pagina)) {
+  } else if (marcos.some(m=>!m.pagina)) {
     // MISS con marco libre
-    estado.modo = 'resultado';
-    const libre = marcos.find(m => !m.pagina);
-    cargarPagina(libre, num);
-    estado.fallos++;
-    estado.xp += 2;
-    mostrarResultado(`📦 FALLO — Cargando página ${num} en marco libre`, 'miss');
-    sfx.fallo();
-    actualizarHUD();
-    verificarNivel();
+    estado.modo='resultado';
+    const libre=marcos.find(m=>!m.pagina);
+    cargarPagina(libre,num);
+    estado.fallos++; estado.xp+=2;
+    mostrarResultado(`📦 CARGA — Página ${num} en marco libre`,'miss');
+    sfx.fallo(); actualizarHUD(); verificarNivel();
     requestBanner.classList.remove('show');
-    setTimeout(siguienteSolicitud, TIEMPOS.resultado);
+    setTimeout(siguienteSolicitud,TIEMPOS.resultado);
 
   } else {
-    // MISS con memoria llena — DECIDIR
-    estado.modo = 'decidiendo';
-    estado.timerInicio = Date.now();
-    estado.timerDuracion = cfgNivel(estado.nivel).timerMs;
+    // MISS con memoria llena
+    estado.modo='decidiendo';
+    estado.timerInicio=Date.now();
+    let timerDecision;
+    if (estado.penalizacionActiva) {
+      timerDecision = Math.max(MIN_TIMER, cfgNivel(estado.nivel).timerMs * 0.5);
+      estado.penalizacionActiva = false;
+    } else {
+      timerDecision = Math.min(MAX_TIMER, Math.max(MIN_TIMER, estado.timerDinamicoMs));
+    }
+    estado.duracionDecisionActual = timerDecision;
     timerContainer.classList.add('show');
-    mostrarResultado('⚡ ¡Memoria llena! Dispará la página MENOS usada', 'decide');
+    const algoHint=estado.algoritmoActual==='WS'
+      ?`⚡ ¡Memoria llena! [WS] Dispará la página fuera del conjunto de trabajo`
+      :`⚡ ¡Memoria llena! [LRU] Dispará la página MENOS usada`;
+    mostrarResultado(algoHint,'decide');
     requestBanner.classList.remove('show');
+    actualizarOrdenLRU();
   }
 }
 
 function procesarDisparo(paginaGrupo) {
-  if (estado.modo !== 'decidiendo') return;
-  estado.modo = 'resultado';
+  if (estado.modo!=='decidiendo') return;
+  estado.modo='resultado';
   timerContainer.classList.remove('show');
+  ocultarVictimaIndicador();
 
-  const orden = paginasCargadas();
-  const victima = orden[0]; // oldest
-  const esCorrecta = victima.pagina === paginaGrupo;
+  const victima=determinarVictima();
+  const esCorrecta=victima&&victima.pagina===paginaGrupo;
 
   if (esCorrecta) {
-    estado.evicionesCorrectas++;
-    estado.puntos += 25 * estado.combo;
-    estado.xp += 15;
-    estado.combo = Math.min(estado.combo + 1, 8);
-    estado.ultimoAcierto = Date.now();
-    mostrarResultado(`🎯 ¡CORRECTO! Desalojaste la página ${victima.pagina.userData.num}`, 'correct');
-    sfx.correcto();
-    flash('#0f0');
+    estado.fallosConsecutivos=0; // Éxito: resetea racha consecutiva
+    estado.eviccionesCorrectas++;
+    estado.puntos+=25*estado.combo; estado.xp+=15;
+    estado.combo=Math.min(estado.combo+1,8); estado.ultimoAcierto=Date.now();
+    estado.timerDinamicoMs=Math.max(MIN_TIMER,estado.timerDinamicoMs*FACTOR_ACIERTO);
+    estado.penalizacionActiva=false;
+    const msg=estado.algoritmoActual==='WS'
+      ?`✅ ¡CORRECTO! [WS] Desalojaste página ${victima.pagina.userData.num}`
+      :`✅ ¡CORRECTO! [LRU] Desalojaste página ${victima.pagina.userData.num}`;
+    mostrarResultado(msg,'correct'); sfx.correcto(); flash('#0f0');
   } else {
-    estado.evicionesIncorrectas++;
-    estado.vida -= 20;
-    estado.combo = 1;
-    mostrarResultado(`💀 ¡MAL! La página ${victima.pagina.userData.num} era la menos usada`, 'wrong');
-    sfx.error();
-    flash('#f00');
-    estado.screenShake = 1.0;
+    estado.fallosConsecutivos++;
+    estado.fallosTotales++;
+    estado.eviccionesIncorrectas++;
+    estado.combo=1;
+    estado.penalizacionActiva=true;
+    const victimaNombre=victima&&victima.pagina?victima.pagina.userData.num:'?';
+    const msg=estado.algoritmoActual==='WS'
+      ?`💀 ¡FALLO! [WS] Debías desalojar página ${victimaNombre}`
+      :`💀 ¡FALLO! [LRU] Debías desalojar página ${victimaNombre}`;
+    mostrarResultado(msg,'wrong'); sfx.error(); flash('#f00'); estado.screenShake=1.0;
   }
 
-  explosion(victima.pagina.position.x, 2, 0, esCorrecta ? 0x00ff00 : 0xff0044, 18, 5);
+  const wx=victima&&victima.pagina?victima.pagina.position.x:0;
+  const wz=victima&&victima.pagina?victima.pagina.position.z:0;
+  explosion(wx,2,wz,esCorrecta?0x00ff00:0xff0044,16,4.5);
+  if (victima) {
+    destruirPagina(victima);
+    cargarPagina(victima,estado.requestActual);
+  }
+  actualizarHUD(); verificarNivel();
 
-  // siempre se desaloja la correcta (LRU)
-  destruirPagina(victima);
-  cargarPagina(victima, estado.requestActual);
+  if (estado.fallosConsecutivos>=2) {
+    morir('💀 ¡2 FALLOS CONSECUTIVOS! Límite alcanzado.');
+    return;
+  }
+  if (estado.fallosTotales>=3) {
+    morir('💀 ¡3 FALLOS TOTALES! Fin de partida.');
+    return;
+  }
 
-  actualizarHUD();
-  verificarNivel();
-
-  if (estado.vida <= 0) { morir(); return; }
-
-  setTimeout(siguienteSolicitud, TIEMPOS.resultado);
+  setTimeout(siguienteSolicitud,TIEMPOS.resultado);
 }
 
-function cargarPagina(marco, num) {
-  let grupo;
-  if (poolPaginas.has(num)) {
-    grupo = poolPaginas.get(num);
-  } else {
-    grupo = crearMeshPagina(num);
-    poolPaginas.set(num, grupo);
-  }
-  grupo.userData.lastUsed = Date.now();
-  grupo.userData.num = num;
-  grupo.visible = true;
-  grupo.position.x = marco.grupo.position.x;
-  grupo.position.z = 0;
-  grupo.userData.targetX = marco.grupo.position.x;
-  grupo.userData.targetY = 1.6;
-  scene.add(grupo);
-  marco.pagina = grupo;
+function cargarPagina(marco,num) {
+  let grupo=poolPaginas.has(num)?poolPaginas.get(num):crearMeshPagina(num);
+  if (!poolPaginas.has(num)) poolPaginas.set(num,grupo);
+  grupo.userData.lastUsed=Date.now(); grupo.userData.num=num;
+  grupo.visible=true;
+  grupo.position.x=marco.grupo.position.x;
+  grupo.position.z=marco.grupo.position.z;
+  grupo.userData.targetX=marco.grupo.position.x;
+  grupo.userData.targetZ=marco.grupo.position.z;
+  grupo.userData.targetY=1.35;
+  scene.add(grupo); marco.pagina=grupo;
   actualizarOrdenLRU();
 }
 
 function destruirPagina(marco) {
-  if (marco.pagina) {
-    marco.pagina.visible = false;
-    scene.remove(marco.pagina);
-    marco.pagina = null;
-  }
+  if (marco.pagina) { marco.pagina.visible=false; scene.remove(marco.pagina); marco.pagina=null; }
 }
 
 function verificarNivel() {
-  while (estado.xp >= XP_POR_NIVEL) {
-    estado.xp -= XP_POR_NIVEL;
-    estado.nivel++;
-    sfx.nivel();
-    estado.screenShake = 1.0;
-    mostrarResultado(`⬆️ ¡NIVEL ${estado.nivel}!`, 'hit');
+  while (estado.xp>=XP_POR_NIVEL) {
+    estado.xp-=XP_POR_NIVEL; estado.nivel++;
+    sfx.nivel(); estado.screenShake=1.0;
+    mostrarResultado(`⬆️ ¡NIVEL ${estado.nivel}!`,'hit');
+    const nuevoBase=cfgNivel(estado.nivel).timerMs;
+    if (estado.timerDinamicoMs>nuevoBase) estado.timerDinamicoMs=nuevoBase;
   }
 }
 
 // ============================================================
 // INPUT
 // ============================================================
-const raycaster = new THREE.Raycaster();
-const mouseNDC = new THREE.Vector2();
+const raycaster=new THREE.Raycaster();
+const mouseNDC=new THREE.Vector2();
 
-function intentarDisparo(cx, cy) {
-  if (estado.modo !== 'decidiendo') return;
+function intentarDisparo(cx,cy) {
+  if (estado.modo!=='decidiendo') return;
   initAudio();
-  const rect = renderer.domElement.getBoundingClientRect();
-  mouseNDC.x = ((cx - rect.left) / rect.width) * 2 - 1;
-  mouseNDC.y = -((cy - rect.top) / rect.height) * 2 + 1;
-  raycaster.setFromCamera(mouseNDC, camera);
+  const rect=renderer.domElement.getBoundingClientRect();
+  mouseNDC.x=((cx-rect.left)/rect.width)*2-1;
+  mouseNDC.y=-((cy-rect.top)/rect.height)*2+1;
+  raycaster.setFromCamera(mouseNDC,camera);
 
-  const meshes = [];
-  paginasCargadas().forEach(m => {
-    if (m.pagina) meshes.push(m.pagina.userData.mesh);
+  const targets=[];
+  marcos.forEach(m=>{
+    if (m.pagina) {
+      targets.push({ obj:m.pagina.userData.mesh, pagina:m.pagina });
+      targets.push({ obj:m.pagina.userData.glow, pagina:m.pagina });
+      m.grupo.children.forEach(c=>targets.push({ obj:c, pagina:m.pagina }));
+    }
   });
 
-  const hits = raycaster.intersectObjects(meshes, false);
-  if (hits.length > 0) {
-    const clicked = hits[0].object.parent; // grupo
-    procesarDisparo(clicked);
-    sfx.disparo();
+  const hits=raycaster.intersectObjects(targets.map(t=>t.obj),false);
+  if (hits.length>0) {
+    const match=targets.find(t=>t.obj===hits[0].object);
+    if (match&&match.pagina) {
+      procesarDisparo(match.pagina);
+      sfx.disparo();
+    }
   }
 }
 
-renderer.domElement.addEventListener('click', e => intentarDisparo(e.clientX, e.clientY));
-renderer.domElement.addEventListener('touchstart', e => {
-  e.preventDefault();
-  initAudio();
-  for (const t of e.changedTouches) intentarDisparo(t.clientX, t.clientY);
-}, { passive: false });
-
-// init audio on any interaction
-document.addEventListener('click', initAudio, { once: true });
-document.addEventListener('touchstart', initAudio, { once: true });
+renderer.domElement.addEventListener('click',e=>intentarDisparo(e.clientX,e.clientY));
+renderer.domElement.addEventListener('touchstart',e=>{
+  e.preventDefault(); initAudio();
+  for (const t of e.changedTouches) intentarDisparo(t.clientX,t.clientY);
+},{ passive:false });
+document.addEventListener('click',initAudio,{once:true});
+document.addEventListener('touchstart',initAudio,{once:true});
 
 // ============================================================
-// TUTORIAL
+// TUTORIAL Y PAUSA INTELIGENTE
 // ============================================================
-const tutorialModal = $('tutorial-modal');
-$('tutorial-btn').addEventListener('click', () => tutorialModal.classList.remove('oculto'));
-$('tutorial-close').addEventListener('click', () => tutorialModal.classList.add('oculto'));
-tutorialModal.addEventListener('click', e => { if (e.target === tutorialModal) tutorialModal.classList.add('oculto'); });
+const tutorialModal=$('tutorial-modal');
+const welcomeTutBtn=$('welcome-tut-btn');
+let juegoPausadoPorModal = false;
+let tiempoPausaInicio = 0;
+
+function abrirTutorialModal() {
+  tutorialModal.classList.remove('oculto');
+  if (estado.modo === 'decidiendo' && !juegoPausadoPorModal) {
+    juegoPausadoPorModal = true;
+    tiempoPausaInicio = Date.now();
+  }
+}
+
+function cerrarTutorialModal() {
+  tutorialModal.classList.add('oculto');
+  if (juegoPausadoPorModal) {
+    const deltaPausa = Date.now() - tiempoPausaInicio;
+    estado.timerInicio += deltaPausa; // Compensa el tiempo para no perder mientras leía
+    juegoPausadoPorModal = false;
+  }
+  if (!welcomeScreen.classList.contains('oculto')) {
+    playerNameInput.focus();
+  }
+}
+
+if (welcomeTutBtn) welcomeTutBtn.addEventListener('click', abrirTutorialModal);
+const goTutBtn=$('go-tut-btn');
+if (goTutBtn) goTutBtn.addEventListener('click', abrirTutorialModal);
+$('tutorial-close').addEventListener('click', cerrarTutorialModal);
+tutorialModal.addEventListener('click', e => { if (e.target === tutorialModal) cerrarTutorialModal(); });
+
+// ============================================================
+// RANKING (localStorage)
+// ============================================================
+const RANKING_KEY='lrudefender_ranking_v2';
+function cargarRanking() {
+  try { return JSON.parse(localStorage.getItem(RANKING_KEY))||[]; } catch { return []; }
+}
+function guardarRanking(ranking) {
+  try { localStorage.setItem(RANKING_KEY,JSON.stringify(ranking)); return true; } catch { return false; }
+}
+function agregarResultado(resultado) {
+  const ranking=cargarRanking();
+  ranking.push(resultado);
+  ranking.sort((a,b)=>b.puntos!==a.puntos?b.puntos-a.puntos:b.tasa!==a.tasa?b.tasa-a.tasa:a.duracion-b.duracion);
+  const trimmed=ranking.slice(0,50);
+  const ok=guardarRanking(trimmed);
+  return { ranking:trimmed, ok };
+}
+function renderizarRanking(ranking,miResultado) {
+  const list=$('ranking-list'); list.innerHTML='';
+  if (ranking.length===0) {
+    list.innerHTML='<div style="color:#6a8aaa;font-size:11px;text-align:center;padding:8px">Sin resultados aún</div>'; return;
+  }
+  ranking.slice(0,15).forEach((r,i)=>{
+    const esYo=miResultado&&r===miResultado;
+    const row=document.createElement('div'); row.className='rank-row';
+    const posClass=i===0?'gold':i===1?'silver':i===2?'bronze':'';
+    const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':`#${i+1}`;
+    row.innerHTML=`<div class="rank-pos ${posClass}">${medal}</div><div class="rank-name ${esYo?'me':''}">${esYo?'→ ':''}${r.nombre}</div><div class="rank-score">${r.puntos}</div><div class="rank-info">N${r.nivel}·${r.tasa}%</div>`;
+    list.appendChild(row);
+  });
+}
 
 // ============================================================
 // GAME OVER / RESET
 // ============================================================
-function morir() {
-  estado.vivo = false;
-  estado.modo = 'dead';
-  const total = estado.aciertos + estado.fallos + estado.evicionesCorrectas + estado.evicionesIncorrectas;
-  const rate = total > 0 ? Math.round(((estado.aciertos + estado.evicionesCorrectas) / total) * 100) : 0;
-  $('go-score').textContent = estado.puntos;
-  $('go-level').textContent = estado.nivel;
-  $('go-hits').textContent = estado.aciertos;
-  $('go-ec').textContent = estado.evicionesCorrectas;
-  $('go-rate').textContent = rate + '%';
+function morir(motivo='Fin de partida') {
+  estado.vivo=false; estado.modo='dead';
+  ocultarVictimaIndicador();
+  const total=estado.aciertos+estado.fallos+estado.eviccionesCorrectas+estado.fallosTotales;
+  const rate=total>0?Math.round(((estado.aciertos+estado.eviccionesCorrectas)/total)*100):0;
+  const duracion=Math.round((Date.now()-estado.startTime)/1000);
+  const miResultado={ id:'play_'+Date.now()+'_'+Math.random().toString(36).slice(2,8), nombre:nombreJugador||'Anónimo', puntos:estado.puntos, nivel:estado.nivel, aciertos:estado.aciertos, eviccionesCorrectas:estado.eviccionesCorrectas, tasa:rate, duracion, fecha:new Date().toISOString() };
+  const { ranking, ok }=agregarResultado(miResultado);
+  const pos=ranking.findIndex(r=>r.id===miResultado.id);
+  const reasonEl=$('go-reason');
+  if (reasonEl) reasonEl.textContent=motivo;
+  $('go-player').textContent=miResultado.nombre;
+  $('go-score').textContent=estado.puntos; $('go-level').textContent=estado.nivel;
+  $('go-hits').textContent=estado.aciertos; $('go-ec').textContent=estado.eviccionesCorrectas;
+  $('go-rate').textContent=rate+'%';
+  $('go-rank-pos').textContent=pos>=0?`#${pos+1}`:'#?';
+  $('go-save-status').textContent=ok?'✅ Resultado guardado localmente':'⚠️ No se pudo guardar el resultado';
+  renderizarRanking(ranking,pos>=0?ranking[pos]:null);
   gameoverEl.classList.remove('oculto');
 }
 
 function reset() {
-  marcos.forEach(m => destruirPagina(m));
-  particulas.forEach(p => scene.remove(p.mesh));
-  particulas.length = 0;
-  poolPaginas.clear();
-
-  estado.vida = 100; estado.puntos = 0; estado.xp = 0; estado.nivel = 1;
-  estado.aciertos = 0; estado.fallos = 0; estado.evicionesCorrectas = 0; estado.evicionesIncorrectas = 0;
-  estado.combo = 1; estado.frame = 0; estado.vivo = true; estado.modo = 'idle';
-  estado.screenShake = 0;
-
-  actualizarHUD();
-  actualizarOrdenLRU();
+  marcos.forEach(m=>destruirPagina(m));
+  particulas.forEach(p=>scene.remove(p.mesh));
+  particulas.length=0; poolPaginas.clear(); referencHistory.length=0;
+  estado.vida=3; estado.fallosConsecutivos=0; estado.fallosTotales=0;
+  estado.puntos=0; estado.xp=0; estado.nivel=1;
+  estado.aciertos=0; estado.fallos=0; estado.eviccionesCorrectas=0; estado.eviccionesIncorrectas=0;
+  estado.combo=1; estado.frame=0; estado.vivo=true; estado.modo='idle';
+  estado.screenShake=0; estado.timerDinamicoMs=cfgNivel(1).timerMs; estado.duracionDecisionActual=cfgNivel(1).timerMs;
+  estado.penalizacionActiva=false; estado.algoritmoActual='LRU'; estado.startTime=Date.now();
+  actualizarAlgoBadge(); actualizarHUD(); actualizarOrdenLRU();
   gameoverEl.classList.add('oculto');
-  requestBanner.classList.remove('show');
-  timerContainer.classList.remove('show');
-  resultMsg.classList.remove('show');
-  lruItems.innerHTML = '';
-
-  setTimeout(siguienteSolicitud, 500);
+  requestBanner.classList.remove('show'); timerContainer.classList.remove('show');
+  resultMsg.classList.remove('show'); ocultarVictimaIndicador(); lruItems.innerHTML='';
+  setTimeout(siguienteSolicitud,150);
 }
 
-$('reiniciar').addEventListener('click', reset);
+$('reiniciar').addEventListener('click',reset);
+$('go-ranking-btn').addEventListener('click',()=>{
+  renderizarRanking(cargarRanking(),null);
+  $('ranking-card').scrollIntoView({behavior:'smooth'});
+});
 
 // ============================================================
 // RESIZE
 // ============================================================
-addEventListener('resize', () => {
-  camera.aspect = innerWidth / innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
+addEventListener('resize',()=>{
+  actualizarCamaraAspecto();
+  renderer.setSize(innerWidth,innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
 });
 
 // ============================================================
@@ -727,102 +1151,156 @@ addEventListener('resize', () => {
 // ============================================================
 function update() {
   estado.frame++;
-  const cfg = cfgNivel(estado.nivel);
+  const cfg=cfgNivel(estado.nivel);
 
-  // timer de decisión
-  if (estado.modo === 'decidiendo') {
-    const elapsed = Date.now() - estado.timerInicio;
-    const remaining = Math.max(0, 1 - elapsed / estado.timerDuracion);
-    timerBar.style.width = (remaining * 100) + '%';
+  if (estado.modo==='decidiendo') {
+    if (juegoPausadoPorModal) return; // Congela el temporizador mientras lee el tutorial
+    const elapsed=Date.now()-estado.timerInicio;
+    const duracion=estado.duracionDecisionActual||3000;
+    const remaining=Math.max(0,1-elapsed/duracion);
+    timerBar.style.width=(remaining*100)+'%';
 
-    if (elapsed >= estado.timerDuracion) {
-      // timeout
-      estado.modo = 'resultado';
+    if (elapsed>=duracion) {
+      estado.modo='resultado';
       timerContainer.classList.remove('show');
-      estado.evicionesIncorrectas++;
-      estado.vida -= 15;
-      estado.combo = 1;
-      const orden = paginasCargadas();
-      if (orden.length > 0) {
-        const victima = orden[0];
-        mostrarResultado(`⏰ ¡Se acabó el tiempo! Se desalojó la página ${victima.pagina.userData.num}`, 'timeout');
-        explosion(victima.pagina.position.x, 2, 0, 0xff8800, 14, 4);
-        destruirPagina(victima);
-        cargarPagina(victima, estado.requestActual);
+      ocultarVictimaIndicador();
+      estado.fallosConsecutivos++;
+      estado.fallosTotales++;
+      estado.eviccionesIncorrectas++;
+      estado.combo=1;
+      estado.penalizacionActiva=true;
+      const victima=determinarVictima();
+      if (victima&&victima.pagina) {
+        mostrarResultado(`⏰ ¡Tiempo agotado! Se desalojó página ${victima.pagina.userData.num}`,'timeout');
+        explosion(victima.pagina.position.x,2,victima.pagina.position.z,0xff8800,12,4);
+        destruirPagina(victima); cargarPagina(victima,estado.requestActual);
       }
-      sfx.timeout();
-      flash('#f80');
-      actualizarHUD();
-      if (estado.vida <= 0) { morir(); return; }
-      setTimeout(siguienteSolicitud, TIEMPOS.resultado);
+      sfx.timeout(); flash('#f80'); actualizarHUD();
+
+      if (estado.fallosConsecutivos>=2) {
+        morir('💀 ¡2 FALLOS CONSECUTIVOS! Límite alcanzado.');
+        return;
+      }
+      if (estado.fallosTotales>=3) {
+        morir('💀 ¡3 FALLOS TOTALES! Fin de partida.');
+        return;
+      }
+
+      setTimeout(siguienteSolicitud,TIEMPOS.resultado);
     }
+    if (estado.victimaActual&&estado.victimaActual.pagina) actualizarVictimaIndicador(estado.victimaActual);
   }
 
-  // combo decae
-  if (Date.now() - estado.ultimoAcierto > 3000 && estado.combo > 1) {
-    estado.combo = 1;
-    comboEl.textContent = 1;
-  }
+  if (Date.now()-estado.ultimoAcierto>3500&&estado.combo>1) { estado.combo=1; comboEl.textContent=1; }
 
-  // animar posiciones de páginas (LRU order)
-  marcos.forEach(m => {
+  marcos.forEach((m,i)=>{
     if (m.pagina) {
-      const ud = m.pagina.userData;
-      m.pagina.position.x += (ud.targetX - m.pagina.position.x) * 0.12;
-      m.pagina.position.y += (ud.targetY - m.pagina.position.y) * 0.15;
-      m.pagina.rotation.y += 0.008;
-      // glow pulse
-      ud.glowMat.opacity = 0.08 + Math.sin(estado.frame * 0.05) * 0.04;
+      const ud=m.pagina.userData;
+      m.pagina.position.x+=(ud.targetX-m.pagina.position.x)*0.35;
+      m.pagina.position.z+=(ud.targetZ-m.pagina.position.z)*0.35;
+      const hoverY = ud.targetY + Math.sin(estado.frame*0.05 + i)*0.06;
+      m.pagina.position.y+=(hoverY-m.pagina.position.y)*0.38;
+      // Número siempre de frente al jugador con sutil ondulación
+      m.pagina.rotation.y = Math.sin(estado.frame*0.035 + i)*0.08;
+      ud.glowMat.opacity=0.08+Math.sin(estado.frame*0.05)*0.04;
     }
   });
 
-  // highlight páginas en modo decisión
-  if (estado.modo === 'decidiendo') {
-    paginasCargadas().forEach((m, i) => {
-      if (m.pagina) {
-        const pulse = 0.3 + Math.sin(estado.frame * 0.1 + i) * 0.2;
-        m.pagina.userData.glowMat.opacity = pulse;
-      }
+  if (estado.modo==='decidiendo') {
+    paginasCargadas().forEach((m,i)=>{
+      if (m.pagina) m.pagina.userData.glowMat.opacity=0.22+Math.sin(estado.frame*0.08+i)*0.17;
     });
   }
 
-  // partículas
-  for (let i = particulas.length - 1; i >= 0; i--) {
-    const pt = particulas[i];
-    pt.mesh.position.x += pt.vx * 0.05;
-    pt.mesh.position.y += pt.vy * 0.05;
-    pt.mesh.position.z += pt.vz * 0.05;
-    pt.vy -= 0.12;
-    pt.vx *= 0.96; pt.vz *= 0.96;
-    pt.vida--;
-    pt.mat.opacity = pt.vida / pt.vidaMax;
-    if (pt.vida <= 0) { scene.remove(pt.mesh); particulas.splice(i, 1); }
+  for (let i=particulas.length-1;i>=0;i--) {
+    const pt=particulas[i];
+    pt.mesh.position.x+=pt.vx*0.05; pt.mesh.position.y+=pt.vy*0.05; pt.mesh.position.z+=pt.vz*0.05;
+    pt.vy-=0.1; pt.vx*=0.96; pt.vz*=0.96; pt.vida--;
+    pt.mat.opacity=pt.vida/pt.vidaMax;
+    if (pt.vida<=0) { scene.remove(pt.mesh); particulas.splice(i,1); }
   }
 
-  // luz de color
   colorLight.color.setHex(cfg.color);
-
-  // screen shake
-  if (estado.screenShake > 0.01) estado.screenShake *= 0.9;
-
-  // cámara
-  camera.position.x += (0 - camera.position.x) * 0.05;
-  camera.position.z += (16 - camera.position.z) * 0.05;
-  camera.position.y = 20 + (estado.screenShake > 0.1 ? (Math.random() - 0.5) * estado.screenShake * 0.4 : 0);
-  camera.position.x += estado.screenShake > 0.1 ? (Math.random() - 0.5) * estado.screenShake * 0.3 : 0;
-  camera.lookAt(0, 0, 0);
+  if (estado.screenShake>0.01) estado.screenShake*=0.88;
+  const isPortrait=window.innerHeight>window.innerWidth;
+  const targetY=isPortrait?34:26;
+  const targetZ=isPortrait?29:22;
+  camera.position.z+=(targetZ-camera.position.z)*0.05;
+  camera.position.y=targetY+(estado.screenShake>0.1?(Math.random()-0.5)*estado.screenShake*0.32:0);
+  camera.position.x+=(0-camera.position.x)*0.05+(estado.screenShake>0.1?(Math.random()-0.5)*estado.screenShake*0.24:0);
+  camera.lookAt(0,0,0);
 }
 
-function loop() {
-  update();
-  renderer.render(scene, camera);
-  requestAnimationFrame(loop);
-}
-
-// arrancar
-actualizarHUD();
-setTimeout(siguienteSolicitud, 800);
+function loop() { update(); renderer.render(scene,camera); requestAnimationFrame(loop); }
 loop();
+
+// ============================================================
+// QR GENERATION
+// ============================================================
+function generarQR() {
+  const qrCanvas=$('qr-canvas');
+  const urlNote=$('qr-url-note');
+  
+  let targetURL=PRODUCTION_URL.trim();
+  if (!targetURL) {
+    const loc=window.location;
+    if (loc&&loc.origin&&!loc.origin.startsWith('file:')&&!loc.hostname.includes('localhost')&&loc.hostname!=='127.0.0.1'&&loc.hostname!=='') {
+      targetURL=loc.href;
+    }
+  }
+
+  if (!targetURL) {
+    const ctx=qrCanvas.getContext('2d');
+    ctx.fillStyle='#fff'; ctx.fillRect(0,0,140,140);
+    ctx.fillStyle='#0a1428'; ctx.font='bold 10px Arial'; ctx.textAlign='center';
+    ctx.fillText('Configurar',70,48);
+    ctx.fillText('PRODUCTION_URL',70,68);
+    ctx.fillText('o desplegar en Vercel',70,88);
+    urlNote.textContent='⚙️ Completar PRODUCTION_URL al desplegar en Vercel';
+    urlNote.style.color='#ff9800'; return;
+  }
+
+  const img=new Image(); img.crossOrigin='anonymous';
+  img.onload=()=>{
+    const ctx=qrCanvas.getContext('2d');
+    ctx.fillStyle='#fff'; ctx.fillRect(0,0,140,140);
+    ctx.drawImage(img,0,0,140,140);
+    urlNote.textContent=targetURL; urlNote.style.color='#00e5ff';
+  };
+  img.onerror=()=>{ urlNote.textContent='⚠️ No se pudo cargar el QR (verificar conexión)'; urlNote.style.color='#ff4466'; };
+  img.src=`https://api.qrserver.com/v1/create-qr-code/?size=140x140&margin=8&data=${encodeURIComponent(targetURL)}`;
+}
+generarQR();
+
+// ============================================================
+// WELCOME SCREEN
+// ============================================================
+const welcomeScreen=$('welcome-screen');
+const playerNameInput=$('player-name-input');
+const startBtn=$('start-btn');
+const nameError=$('name-error');
+
+function iniciarJuego() {
+  const nombre=playerNameInput.value.trim();
+  if (!nombre) { nameError.textContent='⚠️ Por favor, ingresá tu nombre o alias'; playerNameInput.focus(); playerNameInput.style.borderColor='#ff4466'; return; }
+  if (nombre.length<2) { nameError.textContent='⚠️ Mínimo 2 caracteres'; playerNameInput.focus(); playerNameInput.style.borderColor='#ff4466'; return; }
+  nombreJugador=nombre; playerBadge.textContent=`👤 ${nombreJugador}`;
+  // Asegurar que el tutorial esté cerrado al arrancar
+  tutorialModal.classList.add('oculto');
+  juegoPausadoPorModal = false;
+  welcomeScreen.style.transition='opacity 0.25s'; welcomeScreen.style.opacity='0';
+  setTimeout(()=>{
+    welcomeScreen.classList.add('oculto'); welcomeScreen.style.opacity='';
+    initAudio(); actualizarHUD(); actualizarAlgoBadge();
+    estado.startTime=Date.now(); estado.timerDinamicoMs=cfgNivel(1).timerMs;
+    setTimeout(siguienteSolicitud,150);
+  },250);
+}
+
+startBtn.addEventListener('click',iniciarJuego);
+playerNameInput.addEventListener('keydown',e=>{ if(e.key==='Enter') iniciarJuego(); nameError.textContent=''; playerNameInput.style.borderColor=''; });
+playerNameInput.addEventListener('input',()=>{ nameError.textContent=''; playerNameInput.style.borderColor=''; });
+setTimeout(()=>playerNameInput.focus(),150);
 </script>
 </body>
 </html>
