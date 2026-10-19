@@ -61,8 +61,9 @@
 
   #lru-stack{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);z-index:20;pointer-events:none;text-align:center;width:min(96vw,760px);display:flex;flex-direction:column;align-items:center}
   #lru-label{color:#8ab4d8;font-size:10px;letter-spacing:1px;margin-bottom:4px;font-weight:700;text-shadow:0 0 6px rgba(0,0,0,0.8)}
-  #lru-items{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;max-width:100%}
-  .lru-chip{padding:4px 12px;border-radius:8px;font-weight:900;font-size:14px;border:2px solid;min-width:36px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,0.5);display:inline-flex;align-items:center;gap:6px}
+  #lru-items{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;max-width:100%;pointer-events:auto;}
+  .lru-chip{padding:4px 12px;border-radius:8px;font-weight:900;font-size:14px;border:2px solid;min-width:36px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,0.5);display:inline-flex;align-items:center;gap:6px;cursor:pointer;pointer-events:auto;touch-action:manipulation;transition:transform 0.1s;}
+  .lru-chip:active{transform:scale(0.92);}
   .lru-chip-evict-tag{font-size:10px;font-weight:900;padding:2px 6px;background:#ff0044;color:#fff;border-radius:4px;letter-spacing:1px}
 
   #result-msg{position:fixed;top:38%;left:50%;transform:translate(-50%,-50%) scale(0.6);color:#fff;font-size:20px;font-weight:900;z-index:50;pointer-events:none;opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);text-align:center;white-space:nowrap;text-shadow:0 0 20px currentColor}
@@ -116,15 +117,85 @@
   #flash{position:fixed;inset:0;opacity:0;pointer-events:none;z-index:5;transition:opacity 0.15s}
   .oculto{display:none !important}
 
+
+  /* RANKING GLOBAL Y MODAL */
+  .rank-status-badge{padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;margin-bottom:9px;text-align:center;letter-spacing:0.5px}
+  .rank-status-badge.cloud{background:rgba(0,229,255,0.12);border:1px solid rgba(0,229,255,0.4);color:#00e5ff}
+  .rank-status-badge.local{background:rgba(255,152,0,0.12);border:1px solid rgba(255,152,0,0.4);color:#ff9800}
+  .rank-row.me-highlight{background:rgba(0,229,255,0.14);border-radius:6px;padding:4px 6px;border:1px solid rgba(0,229,255,0.4)}
+
+  #ranking-modal{position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:1100;display:flex;justify-content:center;align-items:center;padding:14px;backdrop-filter:blur(6px)}
+  #ranking-modal-content{background:#0a1526;border:1px solid rgba(0,255,255,0.35);border-radius:20px;padding:24px 20px;max-width:500px;width:100%;max-height:88vh;overflow-y:auto;color:#ccc;box-shadow:0 0 50px rgba(0,229,255,0.2)}
+  #ranking-modal-content h2{color:#00e5ff;font-size:20px;margin-bottom:6px;text-align:center;letter-spacing:1px}
+  .rank-modal-btn{padding:10px 22px;font-size:13px;font-weight:800;border:none;border-radius:10px;cursor:pointer;letter-spacing:1px;transition:transform 0.15s}
+  .rank-modal-btn:active{transform:scale(0.95)}
+  .rank-modal-btn.close{background:rgba(255,255,255,0.1);color:#fff}
+  #modal-ranking-refresh{background:linear-gradient(135deg,#00e5ff,#00ff88);color:#001a20}
+  #welcome-rank-btn{display:block;width:100%;margin-top:10px;padding:12px;font-size:13px;font-weight:800;letter-spacing:1.5px;background:rgba(255,215,0,0.08);border:2px solid rgba(255,215,0,0.45);border-radius:12px;color:#ffd700;cursor:pointer;box-shadow:0 0 16px rgba(255,215,0,0.15);transition:all 0.15s;text-transform:uppercase}
+  #welcome-rank-btn:hover{background:rgba(255,215,0,0.2);box-shadow:0 0 24px rgba(255,215,0,0.35);color:#fff}
+  #welcome-rank-btn:active{transform:scale(0.97)}
+
   @media(max-width:600px){
-    #hud{gap:7px;padding:5px 9px}
+    /* HUD superior limpio sin solapamientos */
+    #hud{
+      top:6px;left:6px;right:6px;transform:none;
+      width:calc(100% - 12px);max-width:480px;margin:0 auto;
+      padding:5px 8px;gap:5px;justify-content:space-between;
+      border-radius:12px;font-size:11px;
+    }
     .hud-item{font-size:11px}
-    #request-page{font-size:22px}
-    #stats-bar{font-size:9px;right:4px}
-    #result-msg{font-size:15px;white-space:normal;max-width:90vw}
-    #gameover h1{font-size:30px}
-    #welcome-card{padding:18px 14px}
-    .logo-title{font-size:26px}
+    #player-badge{max-width:75px;overflow:hidden;text-overflow:ellipsis;font-size:10px}
+
+    /* Barra de estadísticas trasladada abajo para no tapar los marcos 3D */
+    #stats-bar{
+      position:fixed;top:auto;bottom:74px;left:50%;right:auto;
+      transform:translateX(-50%);flex-direction:row;gap:8px;
+      padding:4px 10px;font-size:10px;
+      background:rgba(0,15,30,0.88);border-radius:18px;
+      border:1px solid rgba(0,229,255,0.25);
+      box-shadow:0 4px 15px rgba(0,0,0,0.6);
+      white-space:nowrap;z-index:20;
+    }
+
+    #request-banner{
+      top:46px;padding:6px 16px;
+    }
+    #request-page{
+      font-size:clamp(30px,8vw,42px);
+    }
+    #evict-banner-top{
+      top:46px;padding:5px 12px;font-size:11px;
+    }
+    #evict-banner-top b{
+      font-size:18px;padding:1px 6px;
+    }
+
+    /* Barra inferior LRU optimizada para tocar con el pulgar */
+    #lru-stack{
+      bottom:6px;width:98vw;
+    }
+    #lru-label{
+      font-size:9px;margin-bottom:2px;
+    }
+    .lru-chip{
+      padding:6px 10px;min-width:44px;min-height:42px;font-size:16px;
+    }
+    .lru-chip-evict-tag{
+      font-size:9px;padding:2px 4px;
+    }
+    #timer-container{
+      bottom:54px;width:min(280px,75vw);height:9px;
+    }
+    #result-msg{
+      font-size:17px;max-width:85vw;
+    }
+
+    /* Tarjetas y modales más cómodos en celular */
+    #welcome-card{padding:18px 14px;width:min(410px,94vw)}
+    .logo-title{font-size:clamp(24px,6vw,36px)}
+    #gameover h1{font-size:clamp(26px,7vw,40px)}
+    #go-result-card,#ranking-card{padding:12px 14px}
+    #ranking-modal-content{padding:18px 14px;width:min(440px,94vw)}
   }
 </style>
 </head>
@@ -142,6 +213,7 @@
     <div id="name-error"></div>
     <button id="start-btn">▶ COMENZAR PARTIDA</button>
     <button id="welcome-tut-btn" type="button">📖 ¿CÓMO JUGAR? — TUTORIAL</button>
+    <button id="welcome-rank-btn" type="button">🏆 HISTORIAL Y RANKING GLOBAL</button>
     <div id="qr-section">
       <p>📱 Jugá desde tu celular — escaneá el QR</p>
       <div id="qr-canvas-wrap"><canvas id="qr-canvas" width="140" height="140"></canvas></div>
@@ -248,6 +320,21 @@
   </div>
 </div>
 
+
+<!-- RANKING GLOBAL MODAL -->
+<div id="ranking-modal" class="oculto">
+  <div id="ranking-modal-content">
+    <h2>🏆 Historial y Ranking Global</h2>
+    <p style="font-size:12px;color:#8ab4d8;margin-bottom:10px;text-align:center">Partidas sincronizadas en tiempo real entre todos los celulares y dispositivos</p>
+    <div id="modal-ranking-status" class="rank-status-badge cloud">🌐 Conectando a la nube...</div>
+    <div id="modal-ranking-list"></div>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:14px">
+      <button id="modal-ranking-refresh" class="rank-modal-btn">🔄 ACTUALIZAR</button>
+      <button id="modal-ranking-close" class="rank-modal-btn close">CERRAR</button>
+    </div>
+  </div>
+</div>
+
 <!-- GAME OVER -->
 <div id="gameover" class="oculto">
   <h1>GAME OVER</h1>
@@ -262,8 +349,8 @@
     <div id="go-save-status"></div>
   </div>
   <div id="ranking-card">
-    <h3>🏆 RANKING LOCAL</h3>
-    <div id="ranking-warning">⚠️ Ranking guardado localmente en este dispositivo. Para ranking global, configurar backend al desplegar en Vercel.</div>
+    <h3>🏆 HISTORIAL Y RANKING GLOBAL</h3>
+    <div id="ranking-status" class="rank-status-badge cloud">🌐 Sincronizado en la nube — Visible en todos los celulares y PC</div>
     <div id="ranking-list"></div>
   </div>
   <div id="go-btns">
@@ -318,22 +405,23 @@ for (let row = 0; row < 3; row++) {
  *
  * Los tiempos de presentación (200ms) y resultado (340ms) son ultra rápidos y ágiles.
  */
-const MIN_TIMER = 1300;
-const MAX_TIMER = 4000;
-const FACTOR_ACIERTO = 0.95;
+// TIMERS MÁS RÁPIDOS Y DINÁMICOS
+const MIN_TIMER = 800;
+const MAX_TIMER = 2600;
+const FACTOR_ACIERTO = 0.94;
 
 // Ventana de referencias para Working Set
 const WS_WINDOW = 5;
 
 const NIVELES = [
-  { maxPage: 12, timerMs: 3600, color: 0x00e5ff },
-  { maxPage: 14, timerMs: 3200, color: 0x00ffa6 },
-  { maxPage: 16, timerMs: 2900, color: 0xa0ff00 },
-  { maxPage: 18, timerMs: 2600, color: 0xffea00 },
-  { maxPage: 20, timerMs: 2300, color: 0xff9800 },
-  { maxPage: 22, timerMs: 2000, color: 0xff5500 },
-  { maxPage: 25, timerMs: 1800, color: 0xff2200 },
-  { maxPage: 30, timerMs: 1600, color: 0xff0044 },
+  { maxPage: 12, timerMs: 2500, color: 0x00e5ff },
+  { maxPage: 14, timerMs: 2200, color: 0x00ffa6 },
+  { maxPage: 16, timerMs: 1950, color: 0xa0ff00 },
+  { maxPage: 18, timerMs: 1700, color: 0xffea00 },
+  { maxPage: 20, timerMs: 1500, color: 0xff9800 },
+  { maxPage: 22, timerMs: 1300, color: 0xff5500 },
+  { maxPage: 25, timerMs: 1100, color: 0xff2200 },
+  { maxPage: 30, timerMs: 900,  color: 0xff0044 },
 ];
 
 function cfgNivel(n) {
@@ -343,7 +431,7 @@ function cfgNivel(n) {
   return { maxPage: b.maxPage + extra, timerMs: Math.max(MIN_TIMER, b.timerMs - extra * 100), color: b.color };
 }
 
-const TIEMPOS = { mostrarRequest: 200, resultado: 340 };
+const TIEMPOS = { mostrarRequest: 140, resultado: 260 };
 
 // ============================================================
 // THREE.JS SETUP
@@ -366,13 +454,14 @@ scene.fog = new THREE.Fog(0x05060d, 32, 72);
 // Cámara elevada para ver cuadrícula 3×3
 const isPortraitInitial = innerHeight > innerWidth;
 const camera = new THREE.PerspectiveCamera(isPortraitInitial ? 66 : 50, innerWidth / innerHeight, 0.1, 120);
-camera.position.set(0, isPortraitInitial ? 34 : 26, isPortraitInitial ? 29 : 22);
+camera.position.set(0, isPortraitInitial ? 38 : 26, isPortraitInitial ? 32 : 22);
 camera.lookAt(0, 0, 0);
 
 function actualizarCamaraAspecto() {
   const isPortrait = window.innerHeight > window.innerWidth;
   camera.aspect = window.innerWidth / window.innerHeight;
-  camera.fov = isPortrait ? 66 : 50;
+  camera.fov = isPortrait ? 68 : 50;
+  camera.position.set(0, isPortrait ? 38 : 26, isPortrait ? 32 : 22);
   camera.updateProjectionMatrix();
 }
 
@@ -752,6 +841,14 @@ function actualizarOrdenLRU() {
         chip.style.color=`hsl(${hue},100%,60%)`; chip.style.borderColor=`hsl(${hue},100%,40%)`; chip.style.background=`hsla(${hue},100%,50%,0.1)`;
       }
     }
+    chip.title = `Página ${pNum}`;
+    chip.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (estado.modo === 'decidiendo' && marco && marco.pagina) {
+        procesarDisparo(marco.pagina);
+        sfx.disparo();
+      }
+    });
     lruItems.appendChild(chip);
   });
 
@@ -821,7 +918,7 @@ function generarSolicitud() {
 
 function calcularTimerEfectivo(aplicarPenalizacion=false) {
   if (aplicarPenalizacion) {
-    return Math.max(MIN_TIMER, cfgNivel(estado.nivel).timerMs*0.5);
+    return Math.max(MIN_TIMER, cfgNivel(estado.nivel).timerMs*0.45);
   }
   return Math.min(MAX_TIMER, Math.max(MIN_TIMER, estado.timerDinamicoMs));
 }
@@ -884,7 +981,7 @@ function procesarSolicitud(num) {
     estado.timerInicio=Date.now();
     let timerDecision;
     if (estado.penalizacionActiva) {
-      timerDecision = Math.max(MIN_TIMER, cfgNivel(estado.nivel).timerMs * 0.5);
+      timerDecision = Math.max(MIN_TIMER, cfgNivel(estado.nivel).timerMs * 0.45);
       estado.penalizacionActiva = false;
     } else {
       timerDecision = Math.min(MAX_TIMER, Math.max(MIN_TIMER, estado.timerDinamicoMs));
@@ -1058,34 +1155,102 @@ $('tutorial-close').addEventListener('click', cerrarTutorialModal);
 tutorialModal.addEventListener('click', e => { if (e.target === tutorialModal) cerrarTutorialModal(); });
 
 // ============================================================
-// RANKING (localStorage)
+// RANKING GLOBAL MULTI-DISPOSITIVO (Cloud Sync + Local Cache)
 // ============================================================
-const RANKING_KEY='lrudefender_ranking_v2';
-function cargarRanking() {
-  try { return JSON.parse(localStorage.getItem(RANKING_KEY))||[]; } catch { return []; }
+const GLOBAL_API_URL = 'https://api.restful-api.dev/objects/ff808181a09d98f701a1557ea16921ad';
+const RANKING_KEY = 'lrudefender_ranking_v2';
+
+function cargarRankingLocal() {
+  try { return JSON.parse(localStorage.getItem(RANKING_KEY)) || []; } catch { return []; }
 }
-function guardarRanking(ranking) {
-  try { localStorage.setItem(RANKING_KEY,JSON.stringify(ranking)); return true; } catch { return false; }
+
+function guardarRankingLocal(ranking) {
+  try { localStorage.setItem(RANKING_KEY, JSON.stringify(ranking)); return true; } catch { return false; }
 }
-function agregarResultado(resultado) {
-  const ranking=cargarRanking();
-  ranking.push(resultado);
-  ranking.sort((a,b)=>b.puntos!==a.puntos?b.puntos-a.puntos:b.tasa!==a.tasa?b.tasa-a.tasa:a.duracion-b.duracion);
-  const trimmed=ranking.slice(0,50);
-  const ok=guardarRanking(trimmed);
-  return { ranking:trimmed, ok };
-}
-function renderizarRanking(ranking,miResultado) {
-  const list=$('ranking-list'); list.innerHTML='';
-  if (ranking.length===0) {
-    list.innerHTML='<div style="color:#6a8aaa;font-size:11px;text-align:center;padding:8px">Sin resultados aún</div>'; return;
+
+async function cargarRankingGlobal() {
+  const local = cargarRankingLocal();
+  try {
+    const res = await fetch(GLOBAL_API_URL, { cache: 'no-store' });
+    if (res.ok) {
+      const json = await res.json();
+      const remote = (json.data && json.data.ranking) ? json.data.ranking : [];
+      const map = new Map();
+      [...remote, ...local].forEach(item => {
+        if (item && item.id) map.set(item.id, item);
+      });
+      const merged = Array.from(map.values());
+      merged.sort((a,b)=>b.puntos!==a.puntos?b.puntos-a.puntos:b.tasa!==a.tasa?b.tasa-a.tasa:a.duracion-b.duracion);
+      const top = merged.slice(0, 50);
+      guardarRankingLocal(top);
+      return { ranking: top, source: 'cloud' };
+    }
+  } catch (err) {
+    console.warn('Conexión con nube no disponible, usando caché local:', err);
   }
-  ranking.slice(0,15).forEach((r,i)=>{
-    const esYo=miResultado&&r===miResultado;
-    const row=document.createElement('div'); row.className='rank-row';
-    const posClass=i===0?'gold':i===1?'silver':i===2?'bronze':'';
-    const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':`#${i+1}`;
-    row.innerHTML=`<div class="rank-pos ${posClass}">${medal}</div><div class="rank-name ${esYo?'me':''}">${esYo?'→ ':''}${r.nombre}</div><div class="rank-score">${r.puntos}</div><div class="rank-info">N${r.nivel}·${r.tasa}%</div>`;
+  return { ranking: local, source: 'local' };
+}
+
+async function agregarResultadoGlobal(resultado) {
+  const local = cargarRankingLocal();
+  local.push(resultado);
+  local.sort((a,b)=>b.puntos!==a.puntos?b.puntos-a.puntos:b.tasa!==a.tasa?b.tasa-a.tasa:a.duracion-b.duracion);
+  const trimmed = local.slice(0, 50);
+  guardarRankingLocal(trimmed);
+
+  try {
+    const getRes = await fetch(GLOBAL_API_URL, { cache: 'no-store' });
+    let cloudList = [];
+    if (getRes.ok) {
+      const json = await getRes.json();
+      cloudList = (json.data && json.data.ranking) ? json.data.ranking : [];
+    }
+    const map = new Map();
+    [...cloudList, ...trimmed].forEach(item => { if (item && item.id) map.set(item.id, item); });
+    const merged = Array.from(map.values());
+    merged.sort((a,b)=>b.puntos!==a.puntos?b.puntos-a.puntos:b.tasa!==a.tasa?b.tasa-a.tasa:a.duracion-b.duracion);
+    const top50 = merged.slice(0, 50);
+
+    const putRes = await fetch(GLOBAL_API_URL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'LRU_DEFENDER_GLOBAL_SCORES_V2',
+        data: { ranking: top50 }
+      })
+    });
+    if (putRes.ok) {
+      guardarRankingLocal(top50);
+      return { ranking: top50, ok: true, source: 'cloud' };
+    }
+  } catch (err) {
+    console.warn('Error subiendo a la nube:', err);
+  }
+  return { ranking: trimmed, ok: true, source: 'local' };
+}
+
+function renderizarRanking(ranking, miResultado, source = 'cloud', targetListId = 'ranking-list', targetStatusId = 'ranking-status') {
+  const list = $(targetListId);
+  if (!list) return;
+  list.innerHTML = '';
+  const statusEl = $(targetStatusId);
+  if (statusEl) {
+    statusEl.className = 'rank-status-badge ' + (source === 'cloud' ? 'cloud' : 'local');
+    statusEl.innerHTML = source === 'cloud'
+      ? '🌐 Ranking Global en Tiempo Real (Sincronizado entre todos los dispositivos)'
+      : '📱 Mostrando copia local (Verificando conexión con la nube...)';
+  }
+  if (!ranking || ranking.length === 0) {
+    list.innerHTML = '<div style="color:#6a8aaa;font-size:12px;text-align:center;padding:12px">Sin partidas registradas aún. ¡Sé el primero!</div>';
+    return;
+  }
+  ranking.slice(0, 20).forEach((r, i) => {
+    const esYo = miResultado && (r.id === miResultado.id);
+    const row = document.createElement('div');
+    row.className = 'rank-row' + (esYo ? ' me-highlight' : '');
+    const posClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i+1}`;
+    row.innerHTML = `<div class="rank-pos ${posClass}">${medal}</div><div class="rank-name ${esYo?'me':''}" title="${r.nombre}">${esYo?'★ ':''}${r.nombre}</div><div class="rank-score">${r.puntos}</div><div class="rank-info">N${r.nivel}·${r.tasa}%</div>`;
     list.appendChild(row);
   });
 }
@@ -1100,18 +1265,32 @@ function morir(motivo='Fin de partida') {
   const rate=total>0?Math.round(((estado.aciertos+estado.eviccionesCorrectas)/total)*100):0;
   const duracion=Math.round((Date.now()-estado.startTime)/1000);
   const miResultado={ id:'play_'+Date.now()+'_'+Math.random().toString(36).slice(2,8), nombre:nombreJugador||'Anónimo', puntos:estado.puntos, nivel:estado.nivel, aciertos:estado.aciertos, eviccionesCorrectas:estado.eviccionesCorrectas, tasa:rate, duracion, fecha:new Date().toISOString() };
-  const { ranking, ok }=agregarResultado(miResultado);
-  const pos=ranking.findIndex(r=>r.id===miResultado.id);
   const reasonEl=$('go-reason');
   if (reasonEl) reasonEl.textContent=motivo;
   $('go-player').textContent=miResultado.nombre;
   $('go-score').textContent=estado.puntos; $('go-level').textContent=estado.nivel;
   $('go-hits').textContent=estado.aciertos; $('go-ec').textContent=estado.eviccionesCorrectas;
   $('go-rate').textContent=rate+'%';
-  $('go-rank-pos').textContent=pos>=0?`#${pos+1}`:'#?';
-  $('go-save-status').textContent=ok?'✅ Resultado guardado localmente':'⚠️ No se pudo guardar el resultado';
-  renderizarRanking(ranking,pos>=0?ranking[pos]:null);
+  $('go-save-status').innerHTML='⏳ Sincronizando puntaje en la nube...';
+  
+  // Guardado inmediato local para respuesta instantánea
+  const localList = cargarRankingLocal();
+  localList.push(miResultado);
+  localList.sort((a,b)=>b.puntos!==a.puntos?b.puntos-a.puntos:b.tasa!==a.tasa?b.tasa-a.tasa:a.duracion-b.duracion);
+  const initialPos = localList.findIndex(r=>r.id===miResultado.id);
+  $('go-rank-pos').textContent = initialPos >= 0 ? `#${initialPos+1}` : '#?';
+  renderizarRanking(localList, miResultado, 'local');
   gameoverEl.classList.remove('oculto');
+
+  // Sincronización en la nube (multi-dispositivo)
+  agregarResultadoGlobal(miResultado).then(({ ranking, source }) => {
+    const finalPos = ranking.findIndex(r=>r.id===miResultado.id);
+    $('go-rank-pos').textContent = finalPos >= 0 ? `#${finalPos+1}` : '#?';
+    $('go-save-status').innerHTML = source === 'cloud'
+      ? '🌐 ¡Puntaje publicado en la nube! Visible desde cualquier celular o PC'
+      : '✅ Guardado localmente (sin conexión a la nube)';
+    renderizarRanking(ranking, miResultado, source);
+  });
 }
 
 function reset() {
@@ -1132,7 +1311,34 @@ function reset() {
 }
 
 $('reiniciar').addEventListener('click',reset);
-$('go-ranking-btn').addEventListener('click',()=>{
+
+// MODAL DE RANKING GLOBAL
+const rankingModal = $('ranking-modal');
+const welcomeRankBtn = $('welcome-rank-btn');
+const modalRankClose = $('modal-ranking-close');
+const modalRankRefresh = $('modal-ranking-refresh');
+
+async function abrirModalRanking() {
+  rankingModal.classList.remove('oculto');
+  $('modal-ranking-status').className = 'rank-status-badge cloud';
+  $('modal-ranking-status').textContent = '🌐 Conectando con la nube...';
+  const { ranking, source } = await cargarRankingGlobal();
+  renderizarRanking(ranking, null, source, 'modal-ranking-list', 'modal-ranking-status');
+}
+
+function cerrarModalRanking() {
+  rankingModal.classList.add('oculto');
+}
+
+if (welcomeRankBtn) welcomeRankBtn.addEventListener('click', abrirModalRanking);
+if (modalRankClose) modalRankClose.addEventListener('click', cerrarModalRanking);
+if (modalRankRefresh) modalRankRefresh.addEventListener('click', abrirModalRanking);
+rankingModal.addEventListener('click', e => { if (e.target === rankingModal) cerrarModalRanking(); });
+
+$('go-ranking-btn').addEventListener('click', abrirModalRanking);
+
+/* old go-ranking */
+$('go-ranking-btn').addEventListener('click_old',()=>{
   renderizarRanking(cargarRanking(),null);
   $('ranking-card').scrollIntoView({behavior:'smooth'});
 });
@@ -1223,8 +1429,8 @@ function update() {
   colorLight.color.setHex(cfg.color);
   if (estado.screenShake>0.01) estado.screenShake*=0.88;
   const isPortrait=window.innerHeight>window.innerWidth;
-  const targetY=isPortrait?34:26;
-  const targetZ=isPortrait?29:22;
+  const targetY=isPortrait?38:26;
+  const targetZ=isPortrait?32:22;
   camera.position.z+=(targetZ-camera.position.z)*0.05;
   camera.position.y=targetY+(estado.screenShake>0.1?(Math.random()-0.5)*estado.screenShake*0.32:0);
   camera.position.x+=(0-camera.position.x)*0.05+(estado.screenShake>0.1?(Math.random()-0.5)*estado.screenShake*0.24:0);
@@ -1271,6 +1477,7 @@ function generarQR() {
   img.src=`https://api.qrserver.com/v1/create-qr-code/?size=140x140&margin=8&data=${encodeURIComponent(targetURL)}`;
 }
 generarQR();
+cargarRankingGlobal(); // Preload en segundo plano
 
 // ============================================================
 // WELCOME SCREEN
