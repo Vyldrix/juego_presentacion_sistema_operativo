@@ -2,200 +2,252 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#05060d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>LRU Defender — Juego Educativo de Memoria Virtual</title>
 <meta name="description" content="Juego educativo interactivo para aprender los algoritmos LRU y Working Set de reemplazo de páginas en sistemas operativos.">
+<link rel="preconnect" href="https://unpkg.com" crossorigin>
+<link rel="modulepreload" href="https://unpkg.com/three@0.160.0/build/three.module.js" crossorigin>
 <style>
+  :root{
+    --safe-t:env(safe-area-inset-top,0px);--safe-r:env(safe-area-inset-right,0px);
+    --safe-b:env(safe-area-inset-bottom,0px);--safe-l:env(safe-area-inset-left,0px);
+    --side-w:clamp(190px,28vw,250px);
+    --slot-h:64px;--chip-h:48px;
+  }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',system-ui,sans-serif;touch-action:none;user-select:none}
+  html,body{width:100%;height:100%;overflow:hidden;background:#05060d;font-family:'Segoe UI',system-ui,-apple-system,Roboto,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-text-size-adjust:100%;text-size-adjust:100%}
   canvas{display:block;touch-action:none}
+  button{font-family:inherit;touch-action:manipulation}
+  input{user-select:text;-webkit-user-select:text}
 
-  #welcome-screen{position:fixed;inset:0;z-index:500;background:radial-gradient(ellipse at 50% 40%,#0a1a35 0%,#000510 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;overflow-y:auto}
-  .logo-title{font-size:clamp(28px,6vw,54px);font-weight:900;letter-spacing:4px;background:linear-gradient(135deg,#00e5ff,#00ff88,#00e5ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:4px;text-align:center;animation:titlePulse 3s ease-in-out infinite}
+  #welcome-screen{position:fixed;inset:0;z-index:500;background:radial-gradient(ellipse at 50% 40%,#0a1a35 0%,#000510 100%);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:calc(20px + var(--safe-t)) 16px calc(20px + var(--safe-b));overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+  #welcome-screen>*{flex-shrink:0}
+  .logo-title{margin-top:auto;font-size:clamp(28px,7vw,52px);font-weight:900;letter-spacing:3px;background:linear-gradient(135deg,#00e5ff,#00ff88,#00e5ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:4px;text-align:center;animation:titlePulse 3s ease-in-out infinite}
   @keyframes titlePulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)}}
-  .logo-sub{color:#4a6a8a;font-size:13px;letter-spacing:3px;text-transform:uppercase;margin-bottom:26px;text-align:center}
-  #welcome-card{background:rgba(0,20,50,0.87);border:1px solid rgba(0,255,255,0.3);border-radius:20px;padding:26px 30px;width:min(430px,95vw);backdrop-filter:blur(12px);box-shadow:0 0 60px rgba(0,200,255,0.15),inset 0 1px 0 rgba(255,255,255,0.05)}
-  #welcome-card label{display:block;color:#00e5ff;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;font-weight:600}
-  #player-name-input{width:100%;padding:12px 15px;background:rgba(0,30,60,0.8);border:2px solid rgba(0,255,255,0.3);border-radius:10px;color:#fff;font-size:17px;font-weight:600;outline:none;transition:border-color 0.2s,box-shadow 0.2s;letter-spacing:1px}
-  #player-name-input:focus{border-color:#00e5ff;box-shadow:0 0 18px rgba(0,229,255,0.25)}
-  #player-name-input::placeholder{color:#2a4a6a;font-weight:400}
+  .logo-sub{color:#6a8cb0;font-size:12px;letter-spacing:2.5px;text-transform:uppercase;margin-bottom:20px;text-align:center}
+  #welcome-card{margin-bottom:auto;background:rgba(0,18,44,0.95);border:1px solid rgba(0,255,255,0.3);border-radius:18px;padding:24px 26px;width:min(420px,100%);box-shadow:0 0 45px rgba(0,200,255,0.15)}
+  #welcome-card label{display:block;color:#00e5ff;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;font-weight:700}
+  #player-name-input{width:100%;padding:12px 14px;background:rgba(0,26,52,0.85);border:2px solid rgba(0,255,255,0.3);border-radius:10px;color:#fff;font-size:16px;font-weight:600;outline:none;transition:border-color 0.2s,box-shadow 0.2s;letter-spacing:1px}
+  #player-name-input:focus{border-color:#00e5ff;box-shadow:0 0 14px rgba(0,229,255,0.25)}
+  #player-name-input::placeholder{color:#3a5a7a;font-weight:400}
   #name-error{color:#ff4466;font-size:12px;margin-top:5px;min-height:16px}
-  #start-btn{display:block;width:100%;margin-top:16px;padding:14px;font-size:16px;font-weight:800;letter-spacing:2px;background:linear-gradient(135deg,#00e5ff,#00ff88);border:none;border-radius:12px;color:#001a20;cursor:pointer;box-shadow:0 0 28px rgba(0,229,255,0.4);transition:transform 0.15s,box-shadow 0.15s}
-  #start-btn:hover{box-shadow:0 0 42px rgba(0,229,255,0.6);transform:translateY(-1px)}
+  #start-btn{display:block;width:100%;min-height:50px;margin-top:12px;padding:12px;font-size:16px;font-weight:800;letter-spacing:1.5px;background:linear-gradient(135deg,#00e5ff,#00ff88);border:none;border-radius:12px;color:#001a20;cursor:pointer;box-shadow:0 0 24px rgba(0,229,255,0.35);transition:transform 0.15s}
   #start-btn:active{transform:scale(0.97)}
-  #welcome-tut-btn{display:block;width:100%;margin-top:10px;padding:12px;font-size:13px;font-weight:800;letter-spacing:1.5px;background:rgba(0,229,255,0.08);border:2px solid rgba(0,229,255,0.45);border-radius:12px;color:#00e5ff;cursor:pointer;box-shadow:0 0 16px rgba(0,229,255,0.15);transition:all 0.15s;text-transform:uppercase}
-  #welcome-tut-btn:hover{background:rgba(0,229,255,0.22);box-shadow:0 0 24px rgba(0,229,255,0.4);transform:translateY(-1px);color:#fff;border-color:#00e5ff}
+  #welcome-tut-btn{display:block;width:100%;min-height:46px;margin-top:8px;padding:10px;font-size:13px;font-weight:800;letter-spacing:1px;background:rgba(0,229,255,0.08);border:2px solid rgba(0,229,255,0.4);border-radius:12px;color:#00e5ff;cursor:pointer;transition:all 0.15s;text-transform:uppercase}
   #welcome-tut-btn:active{transform:scale(0.97)}
-  #qr-section{margin-top:20px;text-align:center;padding-top:18px;border-top:1px solid rgba(0,255,255,0.1)}
-  #qr-section p{color:#4a6a8a;font-size:11px;letter-spacing:1px;margin-bottom:10px;text-transform:uppercase}
-  #qr-canvas-wrap{display:inline-block;padding:9px;background:#fff;border-radius:10px;box-shadow:0 0 18px rgba(0,229,255,0.2)}
-  #qr-url-note{margin-top:7px;font-size:10px;color:#2a4060;background:rgba(0,50,100,0.4);border:1px solid rgba(0,200,255,0.15);border-radius:6px;padding:4px 9px;display:inline-block}
+  #qr-section{margin-top:18px;text-align:center;padding-top:16px;border-top:1px solid rgba(0,255,255,0.1)}
+  #qr-section p{color:#6a8cb0;font-size:11px;letter-spacing:1px;margin-bottom:8px;text-transform:uppercase}
+  #qr-canvas-wrap{display:inline-block;padding:8px;background:#fff;border-radius:8px;box-shadow:0 0 14px rgba(0,229,255,0.2)}
+  #qr-url-note{margin-top:6px;font-size:10px;color:#2a4060;background:rgba(0,50,100,0.4);border:1px solid rgba(0,200,255,0.15);border-radius:6px;padding:3px 8px;display:inline-block;max-width:100%;overflow-wrap:anywhere}
 
-  #hud{position:fixed;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:12px;align-items:center;z-index:10;pointer-events:none;background:rgba(0,20,40,0.65);padding:7px 14px;border-radius:16px;border:1px solid rgba(0,255,255,0.35);backdrop-filter:blur(6px);flex-wrap:wrap;justify-content:center}
-  .hud-item{color:#0ff;font-size:13px;font-weight:bold;text-shadow:0 0 8px #0ff;white-space:nowrap}
-  .hud-item span{color:#ff0}
-  #algo-badge{padding:3px 9px;border-radius:8px;font-size:11px;font-weight:800;letter-spacing:1px;border:1px solid;transition:all 0.3s}
-  #algo-badge.lru{color:#00e5ff;border-color:#00e5ff;background:rgba(0,229,255,0.12);text-shadow:0 0 8px #00e5ff}
-  #algo-badge.ws{color:#ff9800;border-color:#ff9800;background:rgba(255,152,0,0.12);text-shadow:0 0 8px #ff9800}
-  #player-badge{color:#a0c0ff;font-size:11px;font-weight:600;white-space:nowrap}
+  /* =========================================================
+     CAPA DE JUEGO — UI compacta, sin lag y sin solapamiento
+     ========================================================= */
+  #ui-top{position:fixed;top:0;left:0;right:0;z-index:30;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding:calc(6px + var(--safe-t)) calc(8px + var(--safe-r)) 0 calc(8px + var(--safe-l))}
+  #hud{display:flex;gap:12px;align-items:center;justify-content:center;background:rgba(0,18,36,0.92);padding:6px 14px;border-radius:14px;border:1px solid rgba(0,255,255,0.35);box-shadow:0 4px 14px rgba(0,0,0,0.5);max-width:100%}
+  .hud-item{display:inline-flex;align-items:center;gap:4px;color:#0ff;font-size:14px;font-weight:800;text-shadow:0 0 6px rgba(0,255,255,0.5);white-space:nowrap;line-height:1}
+  .hud-ico{font-size:16px;line-height:1}
+  .hud-val{color:#ff0;font-variant-numeric:tabular-nums}
+  #hud-hp{font-size:15px;letter-spacing:1px;padding:2px 5px;border-radius:8px;transition:background 0.2s}
+  #hud-hp.danger{background:rgba(255,34,85,0.25);box-shadow:0 0 10px rgba(255,34,85,0.7);animation:hpPulse 0.6s infinite alternate}
+  @keyframes hpPulse{from{opacity:1}to{opacity:0.65}}
+  #hp-warn{display:none;font-size:11px;color:#ff6688;font-weight:900;margin-left:3px;letter-spacing:0}
+  #hud-hp.danger #hp-warn{display:inline}
+  #algo-badge{padding:4px 9px;border-radius:8px;font-size:12px;font-weight:900;letter-spacing:1px;border:2px solid;line-height:1}
+  #algo-badge.lru{color:#00e5ff;border-color:#00e5ff;background:rgba(0,229,255,0.12)}
+  #algo-badge.ws{color:#ff9800;border-color:#ff9800;background:rgba(255,152,0,0.14)}
+  #player-badge{color:#a0c0ff;font-size:13px;font-weight:700;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+  #player-badge:empty{display:none}
 
-  #request-banner{position:fixed;top:52px;left:50%;transform:translateX(-50%);background:rgba(0,15,35,0.94);border:2px solid #00e5ff;border-radius:16px;padding:8px 26px;z-index:35;pointer-events:none;text-align:center;opacity:0;transition:opacity 0.25s;backdrop-filter:blur(8px);box-shadow:0 0 30px rgba(0,229,255,0.35);white-space:nowrap}
-  #request-banner.show{opacity:1}
-  #request-label{display:block;color:#94a3b8;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700}
-  #request-page{display:block;color:#ffff00;font-size:clamp(38px,7vw,54px);font-weight:900;text-shadow:0 0 18px #ffff00,0 0 34px rgba(255,255,0,0.6);line-height:1.15}
-  #request-algo-hint{display:none;color:#ff9800;font-size:11px;font-weight:700;letter-spacing:1px;margin-top:3px}
+  /* Ranura de mensajes fija y compacta */
+  #msg-slot{position:relative;width:min(500px,94%);height:var(--slot-h);flex-shrink:0}
+  .slot-layer{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity 0.12s,visibility 0s linear 0.12s;pointer-events:none}
+  .slot-layer.show{opacity:1;visibility:visible;transition:opacity 0.12s,visibility 0s}
 
-  #timer-container{position:fixed;bottom:48px;left:50%;transform:translateX(-50%);width:min(290px,62vw);height:10px;background:rgba(0,0,0,0.7);border:1px solid #f00;border-radius:8px;overflow:hidden;z-index:15;pointer-events:none;opacity:0;transition:opacity 0.3s}
+  .req-box{background:rgba(0,14,32,0.94);border:2px solid #00e5ff;border-radius:12px;padding:3px 22px 4px;text-align:center;box-shadow:0 2px 14px rgba(0,229,255,0.25);max-width:100%}
+  #request-label{color:#8aa4c0;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:800;white-space:nowrap;line-height:1.2}
+  #request-algo-hint{display:none;color:#ff9800;margin-left:5px}
+  #request-page{color:#ffff00;font-size:40px;font-weight:900;text-shadow:0 0 14px #ffff00;line-height:1;font-variant-numeric:tabular-nums}
+
+  .evict-box{background:rgba(180,0,38,0.95);border:2px solid #ff2255;box-shadow:0 2px 16px rgba(255,34,85,0.7);border-radius:12px;padding:3px 14px 4px;text-align:center;color:#fff;max-width:100%;animation:evictPulse 0.7s infinite alternate}
+  .evict-head{font-size:10px;font-weight:900;letter-spacing:1px;color:#ffd6de;white-space:nowrap;line-height:1.2}
+  .evict-main{display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:900;white-space:nowrap;margin:1px 0;letter-spacing:0.5px;color:#ffffff}
+  .evict-main b{display:inline-block;min-width:38px;color:#ffff00;font-size:22px;line-height:1.15;text-shadow:0 0 12px #ffff00;background:rgba(0,0,0,0.6);padding:0 8px;border-radius:7px;border:2px solid #ffff00;font-variant-numeric:tabular-nums}
+  .evict-sub{font-size:10px;color:#ffe0e6;font-weight:700;letter-spacing:0.2px;white-space:nowrap;line-height:1.1}
+  @keyframes evictPulse{from{transform:scale(0.98)}to{transform:scale(1.02)}}
+
+  #result-msg{transform:scale(0.9);transition:opacity 0.12s,visibility 0s linear 0.12s,transform 0.18s cubic-bezier(0.34,1.56,0.64,1)}
+  #result-msg.show{transform:scale(1);transition:opacity 0.12s,visibility 0s,transform 0.18s cubic-bezier(0.34,1.56,0.64,1)}
+  #result-text{display:inline-block;max-width:100%;background:rgba(0,10,24,0.94);border:2px solid currentColor;border-radius:10px;padding:6px 14px;font-size:15px;font-weight:900;line-height:1.2;text-align:center;box-shadow:0 2px 14px rgba(0,0,0,0.6)}
+
+  #ui-bottom{position:fixed;left:0;right:0;bottom:0;z-index:30;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:5px;padding:6px calc(6px + var(--safe-r)) calc(8px + var(--safe-b)) calc(6px + var(--safe-l))}
+  #stats-bar{display:flex;flex-wrap:wrap;justify-content:center;gap:3px 12px;font-size:12px;color:#94a8c0;background:rgba(0,14,28,0.92);padding:4px 14px;border-radius:999px;border:1px solid rgba(0,229,255,0.2);white-space:nowrap;max-width:100%;line-height:1.2}
+  #stats-bar b{color:#0ff;font-variant-numeric:tabular-nums}
+  .l-short{display:none}
+  #timer-container{width:min(360px,88%);height:9px;flex-shrink:0;background:rgba(0,0,0,0.7);border:1px solid #f00;border-radius:6px;overflow:hidden;opacity:0;transition:opacity 0.2s}
   #timer-container.show{opacity:1}
-  #timer-bar{height:100%;width:100%;background:linear-gradient(90deg,#f00,#f80,#ff0);transition:width 0.05s linear;border-radius:8px}
+  #timer-bar{height:100%;width:100%;background:linear-gradient(90deg,#f00,#f80,#ff0);border-radius:6px;transform-origin:left center;will-change:transform}
+  #lru-stack{width:min(100%,720px);display:flex;flex-direction:column;align-items:center}
+  #lru-label{color:#88a8c8;font-size:11px;letter-spacing:0.5px;margin-bottom:4px;font-weight:700;text-align:center;line-height:1.2}
+  #lru-items{display:flex;flex-wrap:wrap;justify-content:center;align-content:flex-start;gap:5px;width:100%;min-height:var(--chip-h);pointer-events:auto}
+  .lru-chip{flex:0 0 calc((100% - 40px) / 9);max-width:72px;height:var(--chip-h);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:10px;border:2px solid;font-weight:900;cursor:pointer;touch-action:manipulation;transition:transform 0.1s;box-shadow:0 2px 8px rgba(0,0,0,0.4);overflow:hidden;pointer-events:auto}
+  .lru-chip:active{transform:scale(0.92)}
+  .chip-num{font-size:19px;line-height:1;font-variant-numeric:tabular-nums}
+  .chip-tag{font-size:9px;font-weight:800;letter-spacing:0.2px;line-height:1;white-space:nowrap;opacity:0.9;min-height:10px}
+  .lru-chip.victim{animation:chipPulse 0.6s infinite alternate}
+  .lru-chip.victim .chip-tag{background:#ff0044;color:#fff;padding:1px 3px;border-radius:3px;opacity:1}
+  @keyframes chipPulse{from{box-shadow:0 0 5px rgba(255,34,85,0.4)}to{box-shadow:0 0 14px rgba(255,34,85,0.9)}}
 
-  #stats-bar{position:fixed;top:8px;right:8px;display:flex;flex-direction:column;gap:3px;z-index:10;pointer-events:none;font-size:10px;color:#94a3b8;background:rgba(0,15,30,0.65);padding:5px 9px;border-radius:10px;border:1px solid rgba(255,255,255,0.1)}
-  #stats-bar b{color:#0ff}
-
-  /* CARTEL DE DESALOJO CENTRADO EN LA PARTE SUPERIOR */
-  #evict-banner-top{position:fixed;top:52px;left:50%;transform:translateX(-50%);z-index:40;pointer-events:none;background:linear-gradient(135deg,rgba(220,0,48,0.96),rgba(140,0,25,0.96));border:2px solid #ff2255;box-shadow:0 0 30px rgba(255,34,85,0.9);border-radius:12px;padding:7px 22px;display:none;align-items:center;justify-content:center;gap:12px;font-size:13px;font-weight:900;color:#fff;letter-spacing:1px;backdrop-filter:blur(8px);animation:evictPulse 0.7s infinite alternate;white-space:nowrap}
-  #evict-banner-top.show{display:inline-flex}
-  #evict-banner-top b{color:#ffff00;font-size:22px;text-shadow:0 0 12px #ffff00;background:rgba(0,0,0,0.45);padding:2px 10px;border-radius:7px;border:1px solid rgba(255,255,0,0.6)}
-  #evict-banner-top .evict-sub{font-size:11px;color:#ffe0e6;font-weight:700;letter-spacing:0.5px}
-  @keyframes evictPulse{from{transform:scale(0.97)}to{transform:scale(1.03)}}
-
-  #lru-stack{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);z-index:20;pointer-events:none;text-align:center;width:min(96vw,760px);display:flex;flex-direction:column;align-items:center}
-  #lru-label{color:#8ab4d8;font-size:10px;letter-spacing:1px;margin-bottom:4px;font-weight:700;text-shadow:0 0 6px rgba(0,0,0,0.8)}
-  #lru-items{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;max-width:100%;pointer-events:auto;}
-  .lru-chip{padding:4px 12px;border-radius:8px;font-weight:900;font-size:14px;border:2px solid;min-width:36px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,0.5);display:inline-flex;align-items:center;gap:6px;cursor:pointer;pointer-events:auto;touch-action:manipulation;transition:transform 0.1s;}
-  .lru-chip:active{transform:scale(0.92);}
-  .lru-chip-evict-tag{font-size:10px;font-weight:900;padding:2px 6px;background:#ff0044;color:#fff;border-radius:4px;letter-spacing:1px}
-
-  #result-msg{position:fixed;top:38%;left:50%;transform:translate(-50%,-50%) scale(0.6);color:#fff;font-size:20px;font-weight:900;z-index:50;pointer-events:none;opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);text-align:center;white-space:nowrap;text-shadow:0 0 20px currentColor}
-  #result-msg.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
-
-  #tutorial-modal{position:fixed;inset:0;background:rgba(0,0,0,0.93);z-index:1000;display:flex;justify-content:center;align-items:center;padding:12px}
-  #tutorial-content{background:#0f1a2e;border:1px solid rgba(0,255,255,0.3);border-radius:18px;padding:22px 18px;max-width:540px;width:100%;max-height:88vh;overflow-y:auto;color:#ccc}
-  #tutorial-content h2{color:#0ff;font-size:19px;margin-bottom:13px;text-align:center}
-  .tut-section{margin-bottom:11px;padding:9px 11px;background:rgba(0,255,255,0.04);border-radius:10px;border-left:3px solid #0ff}
+  #tutorial-modal{position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:1000;display:flex;justify-content:center;align-items:center;padding:calc(12px + var(--safe-t)) 12px calc(12px + var(--safe-b))}
+  #tutorial-content{background:#0a1526;border:1px solid rgba(0,255,255,0.3);border-radius:16px;padding:20px 16px;max-width:540px;width:100%;max-height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;color:#ccc}
+  #tutorial-content h2{color:#0ff;font-size:18px;margin-bottom:11px;text-align:center}
+  .tut-section{margin-bottom:9px;padding:8px 10px;background:rgba(0,255,255,0.04);border-radius:8px;border-left:3px solid #0ff}
   .tut-section.ws-section{border-left-color:#ff9800}
-  .tut-section h3{color:#0ff;font-size:13px;margin-bottom:4px}
+  .tut-section h3{color:#0ff;font-size:14px;margin-bottom:4px}
   .tut-section.ws-section h3{color:#ff9800}
-  .tut-section p{font-size:11px;line-height:1.55;color:#94a3b8;margin-bottom:3px}
-  .tut-section .color-row{display:flex;align-items:center;gap:7px;margin:2px 0}
-  .color-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
-  #tutorial-close{display:block;margin:11px auto 0;padding:10px 30px;font-size:14px;font-weight:800;background:linear-gradient(135deg,#0ff,#0f0);border:none;color:#111;border-radius:10px;cursor:pointer;box-shadow:0 0 18px rgba(0,255,255,0.4)}
+  .tut-section p{font-size:12px;line-height:1.5;color:#94a8c0;margin-bottom:2px}
+  .tut-section .color-row{display:flex;align-items:center;gap:6px;margin:2px 0}
+  .color-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  #tutorial-close{display:block;margin:10px auto 0;min-height:46px;padding:10px 28px;font-size:14px;font-weight:800;background:linear-gradient(135deg,#0ff,#0f0);border:none;color:#111;border-radius:10px;cursor:pointer}
   #tutorial-close:active{transform:scale(0.95)}
 
-  #gameover{position:fixed;inset:0;background:radial-gradient(circle,rgba(5,0,20,0.97),rgba(0,0,0,0.99));display:flex;flex-direction:column;justify-content:flex-start;align-items:center;gap:9px;z-index:100;text-align:center;padding:14px;overflow-y:auto}
-  #gameover h1{font-size:clamp(28px,7vw,50px);text-shadow:0 0 28px #f00;letter-spacing:3px;color:#f00;margin-top:8px}
-  #go-reason{color:#ff4466;font-size:14px;font-weight:900;letter-spacing:1px}
-  #go-result-card{background:rgba(0,10,30,0.82);border:1px solid rgba(0,255,255,0.25);border-radius:16px;padding:16px 22px;max-width:420px;width:100%;backdrop-filter:blur(8px)}
-  .go-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:13px}
+  #gameover{position:fixed;inset:0;background:radial-gradient(circle,rgba(5,0,20,0.97),rgba(0,0,0,0.99));display:flex;flex-direction:column;justify-content:flex-start;align-items:center;gap:8px;z-index:100;text-align:center;padding:calc(12px + var(--safe-t)) 12px calc(14px + var(--safe-b));overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+  #gameover>*{flex-shrink:0}
+  #gameover h2{font-size:clamp(28px,8vw,46px);text-shadow:0 0 24px #f00;letter-spacing:2px;color:#f00;margin-top:6px}
+  #go-reason{color:#ff4466;font-size:14px;font-weight:900;letter-spacing:0.5px;max-width:420px}
+  #go-reason:empty{display:none}
+  #go-result-card{background:rgba(0,10,28,0.9);border:1px solid rgba(0,255,255,0.22);border-radius:14px;padding:12px 18px;max-width:420px;width:100%}
+  .go-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:13px}
   .go-row:last-child{border-bottom:none}
-  .go-row .go-label{color:#6a8aaa}
-  .go-row .go-val{color:#ff0;font-weight:800;font-size:15px}
-  .go-rank-pos{color:#00e5ff;font-weight:900;font-size:20px;text-shadow:0 0 10px #00e5ff}
-  #go-save-status{font-size:11px;color:#6a8aaa;margin-top:5px;min-height:16px}
+  .go-row .go-label{color:#8aa6c4;text-align:left}
+  .go-row .go-val{color:#ff0;font-weight:800;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .go-rank-pos{color:#00e5ff;font-weight:900;font-size:20px;text-shadow:0 0 8px #00e5ff}
+  #go-save-status{font-size:11px;color:#8aa6c4;margin-top:4px;min-height:14px}
 
-  #ranking-card{background:rgba(0,10,30,0.82);border:1px solid rgba(0,255,255,0.2);border-radius:16px;padding:12px 16px;max-width:480px;width:100%;backdrop-filter:blur(8px)}
-  #ranking-card h3{color:#00e5ff;font-size:14px;margin-bottom:9px;letter-spacing:1px}
-  #ranking-warning{background:rgba(255,152,0,0.1);border:1px solid rgba(255,152,0,0.3);border-radius:7px;padding:5px 9px;font-size:10px;color:#ff9800;margin-bottom:7px;text-align:left}
-  .rank-row{display:flex;align-items:center;gap:7px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px}
+  #ranking-card{background:rgba(0,10,28,0.9);border:1px solid rgba(0,255,255,0.2);border-radius:14px;padding:10px 14px;max-width:460px;width:100%}
+  #ranking-card h3{color:#00e5ff;font-size:14px;margin-bottom:8px;letter-spacing:1px}
+  #ranking-warning{background:rgba(255,152,0,0.1);border:1px solid rgba(255,152,0,0.3);border-radius:6px;padding:4px 8px;font-size:10px;color:#ff9800;margin-bottom:6px;text-align:left}
+  .rank-row{display:flex;align-items:center;gap:6px;padding:5px 3px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px}
   .rank-row:last-child{border-bottom:none}
-  .rank-pos{width:22px;text-align:center;font-weight:800;color:#6a8aaa}
-  .rank-pos.gold{color:#ffd700;text-shadow:0 0 7px #ffd700}
+  .rank-pos{width:26px;text-align:center;font-weight:800;color:#8aa6c4;flex-shrink:0}
+  .rank-pos.gold{color:#ffd700;text-shadow:0 0 6px #ffd700}
   .rank-pos.silver{color:#c0c0c0}
   .rank-pos.bronze{color:#cd7f32}
-  .rank-name{flex:1;color:#ccc;font-weight:600;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rank-name{flex:1;min-width:0;color:#ddd;font-weight:600;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .rank-name.me{color:#00e5ff;font-weight:800}
-  .rank-score{color:#ff0;font-weight:700;min-width:48px;text-align:right}
-  .rank-info{color:#556;font-size:9px;min-width:56px;text-align:right}
+  .rank-score{color:#ff0;font-weight:800;min-width:48px;text-align:right;font-variant-numeric:tabular-nums}
+  .rank-info{color:#7a8aa0;font-size:10px;min-width:54px;text-align:right}
 
-  #go-btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
-  #reiniciar,#go-ranking-btn,#go-tut-btn{padding:12px 20px;font-size:14px;border:none;font-weight:900;cursor:pointer;border-radius:10px}
-  #reiniciar{background:linear-gradient(135deg,#0ff,#0f0);color:#111;box-shadow:0 0 22px #0ff}
+  #go-btns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;width:100%;max-width:460px}
+  #reiniciar,#go-ranking-btn,#go-tut-btn{flex:1 1 130px;min-height:46px;padding:10px 14px;font-size:13px;border:none;font-weight:900;cursor:pointer;border-radius:10px}
+  #reiniciar{background:linear-gradient(135deg,#0ff,#0f0);color:#111;box-shadow:0 0 18px #0ff}
   #reiniciar:active{transform:scale(0.95)}
-  #go-ranking-btn{background:rgba(0,255,255,0.1);color:#0ff;border:1px solid #0ff;box-shadow:0 0 13px rgba(0,255,255,0.2)}
+  #go-ranking-btn{background:rgba(0,255,255,0.1);color:#0ff;border:1px solid #0ff}
   #go-ranking-btn:active{transform:scale(0.95)}
+  #go-tut-btn:active{transform:scale(0.95)}
 
   #flash{position:fixed;inset:0;opacity:0;pointer-events:none;z-index:5;transition:opacity 0.15s}
   .oculto{display:none !important}
 
-
   /* RANKING GLOBAL Y MODAL */
-  .rank-status-badge{padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;margin-bottom:9px;text-align:center;letter-spacing:0.5px}
+  .rank-status-badge{padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;margin-bottom:8px;text-align:center;letter-spacing:0.3px}
   .rank-status-badge.cloud{background:rgba(0,229,255,0.12);border:1px solid rgba(0,229,255,0.4);color:#00e5ff}
   .rank-status-badge.local{background:rgba(255,152,0,0.12);border:1px solid rgba(255,152,0,0.4);color:#ff9800}
-  .rank-row.me-highlight{background:rgba(0,229,255,0.14);border-radius:6px;padding:4px 6px;border:1px solid rgba(0,229,255,0.4)}
+  .rank-row.me-highlight{background:rgba(0,229,255,0.14);border-radius:6px;padding:5px 4px;border:1px solid rgba(0,229,255,0.4)}
 
-  #ranking-modal{position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:1100;display:flex;justify-content:center;align-items:center;padding:14px;backdrop-filter:blur(6px)}
-  #ranking-modal-content{background:#0a1526;border:1px solid rgba(0,255,255,0.35);border-radius:20px;padding:24px 20px;max-width:500px;width:100%;max-height:88vh;overflow-y:auto;color:#ccc;box-shadow:0 0 50px rgba(0,229,255,0.2)}
-  #ranking-modal-content h2{color:#00e5ff;font-size:20px;margin-bottom:6px;text-align:center;letter-spacing:1px}
-  .rank-modal-btn{padding:10px 22px;font-size:13px;font-weight:800;border:none;border-radius:10px;cursor:pointer;letter-spacing:1px;transition:transform 0.15s}
-  .rank-modal-btn:active{transform:scale(0.95)}
+  #ranking-modal{position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:1100;display:flex;justify-content:center;align-items:center;padding:calc(12px + var(--safe-t)) 12px calc(12px + var(--safe-b))}
+  #ranking-modal-content{background:#0a1526;border:1px solid rgba(0,255,255,0.35);border-radius:16px;padding:20px 16px;max-width:500px;width:100%;max-height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;color:#ccc}
+  #ranking-modal-content h2{color:#00e5ff;font-size:19px;margin-bottom:6px;text-align:center}
+  .rank-modal-btn{min-height:44px;padding:10px 18px;font-size:13px;font-weight:800;border:none;border-radius:10px;cursor:pointer}
   .rank-modal-btn.close{background:rgba(255,255,255,0.1);color:#fff}
   #modal-ranking-refresh{background:linear-gradient(135deg,#00e5ff,#00ff88);color:#001a20}
-  #welcome-rank-btn{display:block;width:100%;margin-top:10px;padding:12px;font-size:13px;font-weight:800;letter-spacing:1.5px;background:rgba(255,215,0,0.08);border:2px solid rgba(255,215,0,0.45);border-radius:12px;color:#ffd700;cursor:pointer;box-shadow:0 0 16px rgba(255,215,0,0.15);transition:all 0.15s;text-transform:uppercase}
-  #welcome-rank-btn:hover{background:rgba(255,215,0,0.2);box-shadow:0 0 24px rgba(255,215,0,0.35);color:#fff}
+  #welcome-rank-btn{display:block;width:100%;min-height:46px;margin-top:8px;padding:10px;font-size:13px;font-weight:800;letter-spacing:1px;background:rgba(255,215,0,0.08);border:2px solid rgba(255,215,0,0.45);border-radius:12px;color:#ffd700;cursor:pointer;transition:all 0.15s;text-transform:uppercase}
   #welcome-rank-btn:active{transform:scale(0.97)}
 
-  @media(max-width:600px){
-    /* HUD superior limpio sin solapamientos */
-    #hud{
-      top:6px;left:6px;right:6px;transform:none;
-      width:calc(100% - 12px);max-width:480px;margin:0 auto;
-      padding:5px 8px;gap:5px;justify-content:space-between;
-      border-radius:12px;font-size:11px;
-    }
-    .hud-item{font-size:11px}
-    #player-badge{max-width:75px;overflow:hidden;text-overflow:ellipsis;font-size:10px}
+  /* ===================== CELULAR (vertical) ===================== */
+  @media (max-width:600px){
+    :root{--slot-h:56px;--chip-h:44px}
+    #ui-top{gap:4px;padding-left:calc(4px + var(--safe-l));padding-right:calc(4px + var(--safe-r))}
+    #hud{width:100%;justify-content:space-between;gap:3px;padding:5px 8px;border-radius:12px}
+    .hud-item{font-size:13px;gap:2px}
+    .hud-ico{font-size:15px}
+    #hud-hp{font-size:14px;padding:2px 3px;letter-spacing:0}
+    #algo-badge{font-size:11px;padding:3px 7px}
+    #player-badge{display:none}
 
-    /* Barra de estadísticas trasladada abajo para no tapar los marcos 3D */
-    #stats-bar{
-      position:fixed;top:auto;bottom:74px;left:50%;right:auto;
-      transform:translateX(-50%);flex-direction:row;gap:8px;
-      padding:4px 10px;font-size:10px;
-      background:rgba(0,15,30,0.88);border-radius:18px;
-      border:1px solid rgba(0,229,255,0.25);
-      box-shadow:0 4px 15px rgba(0,0,0,0.6);
-      white-space:nowrap;z-index:20;
-    }
+    .req-box{padding:2px 16px 3px;border-radius:10px}
+    #request-label{font-size:10px;letter-spacing:1px}
+    #request-page{font-size:34px}
+    .evict-box{padding:2px 12px 3px;border-radius:10px}
+    .evict-head{font-size:9px}
+    .evict-main{font-size:13px;gap:6px}
+    .evict-main b{font-size:19px;min-width:34px;padding:0 6px}
+    .evict-sub{font-size:9px}
+    #result-text{font-size:13px;padding:4px 10px}
 
-    #request-banner{
-      top:46px;padding:6px 16px;
-    }
-    #request-page{
-      font-size:clamp(30px,8vw,42px);
-    }
-    #evict-banner-top{
-      top:46px;padding:5px 12px;font-size:11px;
-    }
-    #evict-banner-top b{
-      font-size:18px;padding:1px 6px;
-    }
+    #ui-bottom{gap:4px;padding-top:4px;padding-left:calc(4px + var(--safe-l));padding-right:calc(4px + var(--safe-r))}
+    #stats-bar{font-size:11px;gap:2px 8px;padding:3px 10px}
+    .l-long{display:none}
+    .l-short{display:inline}
+    #timer-container{height:7px}
+    #lru-label{font-size:10px;margin-bottom:3px}
+    #lru-items{min-height:calc(var(--chip-h) * 2 + 5px);gap:4px}
+    .lru-chip{flex-basis:calc((100% - 16px) / 5);max-width:none}
+    .chip-num{font-size:17px}
+    .chip-tag{font-size:8.5px}
 
-    /* Barra inferior LRU optimizada para tocar con el pulgar */
-    #lru-stack{
-      bottom:6px;width:98vw;
-    }
-    #lru-label{
-      font-size:9px;margin-bottom:2px;
-    }
-    .lru-chip{
-      padding:6px 10px;min-width:44px;min-height:42px;font-size:16px;
-    }
-    .lru-chip-evict-tag{
-      font-size:9px;padding:2px 4px;
-    }
-    #timer-container{
-      bottom:54px;width:min(280px,75vw);height:9px;
-    }
-    #result-msg{
-      font-size:17px;max-width:85vw;
-    }
+    #welcome-card{padding:18px 14px}
+    #qr-section{display:none}
+    .logo-sub{font-size:11px;letter-spacing:1.5px;margin-bottom:14px}
+    #ranking-modal-content{padding:16px 12px}
+    #go-result-card,#ranking-card{padding:10px 12px}
+  }
 
-    /* Tarjetas y modales más cómodos en celular */
-    #welcome-card{padding:18px 14px;width:min(410px,94vw)}
-    .logo-title{font-size:clamp(24px,6vw,36px)}
-    #gameover h1{font-size:clamp(26px,7vw,40px)}
-    #go-result-card,#ranking-card{padding:12px 14px}
-    #ranking-modal-content{padding:18px 14px;width:min(440px,94vw)}
+  @media (orientation:landscape) and (max-height:540px){
+    :root{--slot-h:60px;--chip-h:42px}
+    #ui-top{top:0;bottom:0;right:auto;width:calc(var(--side-w) + var(--safe-l));justify-content:center;gap:6px;padding:6px 6px 6px calc(6px + var(--safe-l))}
+    #hud{display:grid;grid-template-columns:repeat(3,auto);justify-content:space-around;width:100%;gap:6px 4px;padding:6px}
+    .hud-item{font-size:13px}
+    #hud-hp{font-size:13px;letter-spacing:0}
+    #algo-badge{justify-self:center;font-size:11px}
+    #player-badge{display:block;grid-column:1/-1;text-align:center;max-width:100%;font-size:11px}
+    #player-badge:empty{display:none}
+    #msg-slot{width:100%}
+    .req-box{padding:2px 14px}
+    #request-page{font-size:32px}
+    .evict-box{padding:2px 8px;width:100%}
+    .evict-main{font-size:12px;gap:4px}
+    .evict-main b{font-size:16px;min-width:28px;padding:0 4px}
+    .evict-head{font-size:9px}
+    .evict-sub{display:none}
+    #result-text{font-size:13px;padding:4px 8px}
+
+    #ui-bottom{top:0;left:auto;width:calc(var(--side-w) + var(--safe-r));justify-content:center;gap:5px;padding:6px calc(6px + var(--safe-r)) 6px 6px}
+    #stats-bar{font-size:11px;gap:2px 8px;padding:3px 8px;border-radius:10px}
+    .l-long{display:none}
+    .l-short{display:inline}
+    #timer-container{width:100%;height:7px}
+    #lru-label{font-size:10px;margin-bottom:3px}
+    #lru-items{min-height:calc(var(--chip-h) * 3 + 10px);gap:4px}
+    .lru-chip{flex-basis:calc((100% - 8px) / 3);max-width:none}
+    .chip-num{font-size:16px}
+
+    #welcome-card{padding:16px}
+    #qr-section{display:none}
+    .logo-title{font-size:30px}
+    .logo-sub{margin-bottom:12px}
+  }
+
+  /* Dispositivos táctiles: sin blur (costoso en GPU móvil) */
+  @media (pointer:coarse){
+    #welcome-card{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(0,20,50,0.95)}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .evict-box,.lru-chip.victim,#hud-hp.danger,.logo-title{animation:none}
   }
 </style>
 </head>
@@ -205,11 +257,11 @@
 
 <!-- WELCOME SCREEN -->
 <div id="welcome-screen">
-  <div class="logo-title">⚡ LRU DEFENDER</div>
+  <h1 class="logo-title">⚡ LRU DEFENDER</h1>
   <div class="logo-sub">Juego Educativo de Memoria Virtual</div>
   <div id="welcome-card">
     <label for="player-name-input">👤 Tu nombre o alias</label>
-    <input type="text" id="player-name-input" maxlength="20" placeholder="Ej: AlumnoEpico99" autocomplete="off" spellcheck="false">
+    <input type="text" id="player-name-input" maxlength="20" placeholder="Ej: AlumnoEpico99" autocomplete="off" spellcheck="false" enterkeyhint="go">
     <div id="name-error"></div>
     <button id="start-btn">▶ COMENZAR PARTIDA</button>
     <button id="welcome-tut-btn" type="button">📖 ¿CÓMO JUGAR? — TUTORIAL</button>
@@ -222,49 +274,56 @@
   </div>
 </div>
 
-<!-- HUD -->
-<div id="hud">
-  <div class="hud-item">🎯 <span id="score">0</span></div>
-  <div class="hud-item">🔥 x<span id="combo">1</span></div>
-  <div class="hud-item" id="hud-hp"><span id="hp">❤️❤️❤️</span></div>
-  <div class="hud-item">📊 N<span id="level">1</span></div>
-  <div id="algo-badge" class="lru">LRU</div>
-  <div id="player-badge"></div>
+<!-- PANEL SUPERIOR: HUD + ranura de mensajes -->
+<div id="ui-top">
+  <div id="hud">
+    <div class="hud-item" title="Puntaje"><span class="hud-ico">🎯</span><span class="hud-val" id="score">0</span></div>
+    <div class="hud-item" title="Combo"><span class="hud-ico">🔥</span>x<span class="hud-val" id="combo">1</span></div>
+    <div class="hud-item" id="hud-hp" title="Vidas"><span id="hp">❤️❤️❤️</span><span id="hp-warn"><span class="l-long">⚠️ 1 seguido</span><span class="l-short">⚠️</span></span></div>
+    <div class="hud-item" title="Nivel"><span class="hud-ico">📊</span>N<span class="hud-val" id="level">1</span></div>
+    <div id="algo-badge" class="lru">LRU</div>
+    <div id="player-badge"></div>
+  </div>
+
+  <div id="msg-slot">
+    <!-- REQUEST BANNER -->
+    <div id="request-banner" class="slot-layer">
+      <div class="req-box">
+        <div id="request-label">Solicitud de página<span id="request-algo-hint"></span></div>
+        <div id="request-page">—</div>
+      </div>
+    </div>
+
+    <!-- CARTEL DE DESALOJO -->
+    <div id="evict-banner-top" class="slot-layer">
+      <div class="evict-box">
+        <div class="evict-head" id="evict-head">⚡ MEMORIA LLENA</div>
+        <div class="evict-main">
+          <span>DESALOJÁ PÁGINA <b id="evict-page-num">—</b></span>
+        </div>
+        <div class="evict-sub">Tocá esa página en la cuadrícula o en la barra de abajo</div>
+      </div>
+    </div>
+
+    <!-- RESULTADO -->
+    <div id="result-msg" class="slot-layer"><span id="result-text"></span></div>
+  </div>
 </div>
 
-<!-- REQUEST BANNER -->
-<div id="request-banner">
-  <div id="request-label">Solicitud de página</div>
-  <div id="request-page">—</div>
-  <div id="request-algo-hint"></div>
+<!-- PANEL INFERIOR: estadísticas + temporizador + orden LRU/WS -->
+<div id="ui-bottom">
+  <div id="stats-bar">
+    <span>✅ <span class="l-long">Aciertos:</span><span class="l-short">Hits</span> <b id="s-hits">0</b></span>
+    <span>📦 <span class="l-long">Fallos pág:</span><span class="l-short">F.pág</span> <b id="s-misses">0</b></span>
+    <span>🎯 <span class="l-long">Evicciones OK:</span><span class="l-short">Evic</span> <b id="s-ec">0</b></span>
+    <span>💀 <span class="l-long">Fallos juego:</span><span class="l-short">Err</span> <b id="s-ew">0/3</b></span>
+  </div>
+  <div id="timer-container"><div id="timer-bar"></div></div>
+  <div id="lru-stack">
+    <div id="lru-label">ORDEN LRU — izq = menos usada (🔴) → der = más usada (🟢)</div>
+    <div id="lru-items"></div>
+  </div>
 </div>
-
-<div id="timer-container"><div id="timer-bar"></div></div>
-
-<!-- Indicador de víctima trasladado a la barra inferior -->
-
-<!-- STATS BAR -->
-<div id="stats-bar">
-  <span>✅ Aciertos: <b id="s-hits">0</b></span>
-  <span>📦 Fallos pág: <b id="s-misses">0</b></span>
-  <span>🎯 Evicciones OK: <b id="s-ec">0</b></span>
-  <span>💀 Fallos juego: <b id="s-ew">0/3</b></span>
-</div>
-
-<!-- CARTEL DE DESALOJO EN PARTE SUPERIOR -->
-<div id="evict-banner-top">
-  <span>⚠️ DESALOJAR:</span>
-  <span>PÁGINA <b id="evict-page-num">—</b></span>
-  <span class="evict-sub">(Búscala y tócala en los marcos de abajo)</span>
-</div>
-
-<!-- LRU/WS STACK -->
-<div id="lru-stack">
-  <div id="lru-label">ORDEN LRU — izq = menos usada (🔴) → der = más usada (🟢)</div>
-  <div id="lru-items"></div>
-</div>
-
-<div id="result-msg"></div>
 
 
 <!-- TUTORIAL MODAL -->
@@ -337,7 +396,8 @@
 
 <!-- GAME OVER -->
 <div id="gameover" class="oculto">
-  <h1>GAME OVER</h1>
+  <h2>GAME OVER</h2>
+  <div id="go-reason"></div>
   <div id="go-result-card">
     <div class="go-row"><span class="go-label">👤 Jugador</span><span class="go-val" id="go-player">—</span></div>
     <div class="go-row"><span class="go-label">🎯 Puntaje final</span><span class="go-val" id="go-score">0</span></div>
@@ -380,32 +440,26 @@ const MAX_FRAMES = 9;
 const ARENA = 28;
 const XP_POR_NIVEL = 100;
 
-// 9 marcos en cuadrícula 3×3: separación X=7, Z=7.5
+// Dispositivo táctil / pantalla chica → modo rendimiento
+const IS_MOBILE = matchMedia('(pointer: coarse)').matches || Math.min(screen.width, screen.height) < 700;
+
+// 9 marcos en cuadrícula 3×3 proporcional y equilibrada:
+// Deja amplio espacio vertical y lateral, sin tapar ni superponerse con el HUD ni con la barra inferior.
+const FRAME_SEP_X = 3.2;
+const FRAME_SEP_Z = 3.4;
+const PAGE_SIZE = 1.85;     // tamaño ideal de cubo-página: perfectamente visible y sin solapamiento
+const PAGE_Y = 1.15;        // altura de reposo
+const PAGE_Y_HIT = 1.75;    // altura al saltar en acierto
 const POS_FRAMES = [];
 for (let row = 0; row < 3; row++) {
   for (let col = 0; col < 3; col++) {
-    POS_FRAMES.push({ x: (col - 1) * 7, z: (row - 1) * 7.5 });
+    POS_FRAMES.push({ x: (col - 1) * FRAME_SEP_X, z: (row - 1) * FRAME_SEP_Z });
   }
 }
 
 /**
  * DIFICULTAD DINÁMICA
- * ──────────────────────────────────────────────────────────
- * Fórmula tras ACIERTO o EVICCIÓN CORRECTA:
- *   timerDinamicoMs = max(MIN_TIMER, timerDinamicoMs × FACTOR_ACIERTO)
- *   FACTOR_ACIERTO = 0.96  → cada acierto reduce 4% el tiempo de decisión
- *
- * Fórmula tras ERROR o TIMEOUT (penalización):
- *   Al siguiente turno de decisión: timer = max(MIN_TIMER, timerBase(nivel) × 0.5)
- *   Es decir, la mitad del tiempo de referencia del nivel actual.
- *
- * Límites:
- *   MIN_TIMER = 1300 ms  (nunca por debajo de este valor)
- *   MAX_TIMER = 4000 ms  (máximo posible al inicio)
- *
- * Los tiempos de presentación (200ms) y resultado (340ms) son ultra rápidos y ágiles.
  */
-// TIMERS MÁS RÁPIDOS Y DINÁMICOS
 const MIN_TIMER = 800;
 const MAX_TIMER = 2600;
 const FACTOR_ACIERTO = 0.94;
@@ -434,56 +488,80 @@ function cfgNivel(n) {
 const TIEMPOS = { mostrarRequest: 140, resultado: 260 };
 
 // ============================================================
-// THREE.JS SETUP
+// THREE.JS SETUP — ULTRA OPTIMIZADO PARA MÓVIL
 // ============================================================
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+// 1.5 de pixelRatio da nitidez absoluta sin sobrecargar la GPU en pantallas Retina/OLED
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// Sin sombras costosas: iluminación emissive cyber fluida a 60-120 fps
+renderer.shadowMap.enabled = false;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
+renderer.toneMappingExposure = 1.15;
 document.body.appendChild(renderer.domElement);
 renderer.domElement.style.position = 'fixed';
 renderer.domElement.style.inset = '0';
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x05060d);
-scene.fog = new THREE.Fog(0x05060d, 32, 72);
+scene.fog = new THREE.Fog(0x05060d, 40, 90);
 
-// Cámara elevada para ver cuadrícula 3×3
-const isPortraitInitial = innerHeight > innerWidth;
-const camera = new THREE.PerspectiveCamera(isPortraitInitial ? 66 : 50, innerWidth / innerHeight, 0.1, 120);
-camera.position.set(0, isPortraitInitial ? 38 : 26, isPortraitInitial ? 32 : 22);
-camera.lookAt(0, 0, 0);
+// Cámara elevada (58°) para perspectiva clara.
+// La cuadrícula 3×3 se centra verticalmente en el espacio libre entre el HUD y la barra inferior.
+const CAM_ELEV = THREE.MathUtils.degToRad(58);
+const CAM_DIR = new THREE.Vector3(0, Math.sin(CAM_ELEV), Math.cos(CAM_ELEV));
+const CAM_TARGET = new THREE.Vector3(0, 0.45, 0.0);
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 1, 260);
 
-function actualizarCamaraAspecto() {
-  const isPortrait = window.innerHeight > window.innerWidth;
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.fov = isPortrait ? 68 : 50;
-  camera.position.set(0, isPortrait ? 38 : 26, isPortrait ? 32 : 22);
+let camDistBase = 32;
+function actualizarCamara() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const isPortrait = h > w;
+  camera.aspect = w / h;
+
+  let targetY, targetZ;
+  if (isPortrait) {
+    camera.fov = 40;
+    const fovRad = THREE.MathUtils.degToRad(camera.fov);
+    const tanHalfH = Math.tan(fovRad / 2) * camera.aspect;
+    // Multiplicador 1.6 deja un cómodo margen lateral y vertical para que nada se superponga
+    const gridSpanX = (FRAME_SEP_X * 2 + PAGE_SIZE) * 1.6;
+    camDistBase = (gridSpanX / 2) / tanHalfH;
+    targetY = 0.45;
+    targetZ = -0.1;
+  } else {
+    const isSmallLandscape = h < 540;
+    camera.fov = isSmallLandscape ? 34 : 38;
+    const fovRad = THREE.MathUtils.degToRad(camera.fov);
+    const gridSpanZ = (FRAME_SEP_Z * 2 + PAGE_SIZE) * 1.35;
+    camDistBase = (gridSpanZ / 2) / Math.tan(fovRad / 2);
+    targetY = 0.45;
+    targetZ = 0.0;
+  }
+
+  CAM_TARGET.set(0, targetY, targetZ);
+  camera.position.copy(CAM_TARGET).addScaledVector(CAM_DIR, camDistBase);
+  camera.lookAt(CAM_TARGET);
   camera.updateProjectionMatrix();
 }
+actualizarCamara();
 
-scene.add(new THREE.AmbientLight(0x334466, 0.85));
-const dirLight = new THREE.DirectionalLight(0xaaddff, 1.2);
-dirLight.position.set(15, 30, 12);
-dirLight.castShadow = true;
-dirLight.shadow.mapSize.set(1024, 1024);
-dirLight.shadow.camera.left = -28; dirLight.shadow.camera.right = 28;
-dirLight.shadow.camera.top = 28; dirLight.shadow.camera.bottom = -28;
+scene.add(new THREE.AmbientLight(0x334466, 0.9));
+const dirLight = new THREE.DirectionalLight(0xaaddff, 1.3);
+dirLight.position.set(12, 28, 10);
 scene.add(dirLight);
-scene.add(new THREE.HemisphereLight(0x0088ff, 0x001122, 0.45));
+scene.add(new THREE.HemisphereLight(0x0088ff, 0x001122, 0.5));
 const colorLight = new THREE.PointLight(0x00ffff, 1.4, 60);
 colorLight.position.set(0, 12, 0);
 scene.add(colorLight);
 
-// Entorno
+// Entorno liviano (MeshLambertMaterial en vez de MeshStandard)
 const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(ARENA * 2, ARENA * 2, 40, 40),
-  new THREE.MeshStandardMaterial({ color: 0x0a1428, roughness: 0.8, metalness: 0.4, emissive: 0x001122, emissiveIntensity: 0.3 })
+  new THREE.PlaneGeometry(ARENA * 2, ARENA * 2, 1, 1),
+  new THREE.MeshLambertMaterial({ color: 0x070e1c, emissive: 0x001122, emissiveIntensity: 0.25 })
 );
-floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
+floor.rotation.x = -Math.PI / 2;
 scene.add(floor);
 const grid = new THREE.GridHelper(ARENA * 2, 38, 0x00ccff, 0x003355);
 grid.position.y = 0.01; grid.material.opacity = 0.18; grid.material.transparent = true;
@@ -518,148 +596,173 @@ const sfx = {
 // TEXTURAS Y MESHES
 // ============================================================
 function crearTexturaPagina(num) {
-  const c = document.createElement('canvas'); c.width = 512; c.height = 512;
+  const c = document.createElement('canvas'); c.width = 256; c.height = 256;
   const ctx = c.getContext('2d');
 
   // Fondo oscuro con degradado radial de alto contraste
-  const grad = ctx.createRadialGradient(256, 256, 40, 256, 256, 270);
+  const grad = ctx.createRadialGradient(128, 128, 20, 128, 128, 135);
   grad.addColorStop(0, '#0f244a');
   grad.addColorStop(0.75, '#050c1e');
   grad.addColorStop(1, '#02050f');
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 512, 512);
+  ctx.fillRect(0, 0, 256, 256);
 
   // Marco exterior neón
   ctx.strokeStyle = '#00e5ff';
-  ctx.lineWidth = 14;
-  ctx.strokeRect(14, 14, 484, 484);
+  ctx.lineWidth = 7;
+  ctx.strokeRect(6, 6, 244, 244);
 
   // Esquinas de acento luminosas
   ctx.fillStyle = '#00ff88';
-  ctx.fillRect(10, 10, 40, 14); ctx.fillRect(10, 10, 14, 40);
-  ctx.fillRect(462, 10, 40, 14); ctx.fillRect(488, 10, 14, 40);
-  ctx.fillRect(10, 488, 40, 14); ctx.fillRect(10, 462, 14, 40);
-  ctx.fillRect(462, 488, 40, 14); ctx.fillRect(488, 462, 14, 40);
+  ctx.fillRect(4, 4, 20, 7); ctx.fillRect(4, 4, 7, 20);
+  ctx.fillRect(232, 4, 20, 7); ctx.fillRect(245, 4, 7, 20);
+  ctx.fillRect(4, 245, 20, 7); ctx.fillRect(4, 232, 7, 20);
+  ctx.fillRect(232, 245, 20, 7); ctx.fillRect(245, 232, 7, 20);
 
   // Placa central oscura para máximo contraste
-  ctx.fillStyle = 'rgba(0, 15, 35, 0.88)';
-  ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(38, 46, 436, 348, 22);
-  else ctx.rect(38, 46, 436, 348);
+  ctx.fillStyle = 'rgba(0, 15, 35, 0.9)';
+  if (ctx.roundRect) ctx.roundRect(18, 22, 220, 175, 12);
+  else ctx.rect(18, 22, 220, 175);
   ctx.fill();
   ctx.strokeStyle = 'rgba(0, 229, 255, 0.45)';
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 2.5;
   ctx.stroke();
 
-  // NÚMERO GIGANTE Y ULTRA RESALTADO
-  ctx.font = '900 250px "Segoe UI", Arial, sans-serif';
+  // NÚMERO NÍTIDO Y RESALTADO (sin shadowBlur para 0 lag de CPU)
+  const txt = String(num);
+  ctx.font = `900 ${txt.length > 1 ? 135 : 155}px "Segoe UI", Arial, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // Sombra / glow neón
-  ctx.shadowColor = '#00e5ff';
-  ctx.shadowBlur = 30;
-
   // Contorno exterior negro grueso para contraste absoluto
   ctx.strokeStyle = '#000000';
-  ctx.lineWidth = 26;
-  ctx.strokeText(String(num), 256, 215);
+  ctx.lineWidth = 14;
+  ctx.strokeText(txt, 128, 114);
 
   // Relleno blanco brillante puro
   ctx.fillStyle = '#ffffff';
-  ctx.fillText(String(num), 256, 215);
-
-  // Reset shadow
-  ctx.shadowBlur = 0;
+  ctx.fillText(txt, 128, 114);
 
   // Badge inferior "PÁGINA"
-  ctx.fillStyle = 'rgba(0, 229, 255, 0.15)';
-  ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(130, 416, 252, 60, 14);
-  else ctx.rect(130, 416, 252, 60);
+  ctx.fillStyle = 'rgba(0, 229, 255, 0.16)';
+  if (ctx.roundRect) ctx.roundRect(64, 208, 128, 30, 8);
+  else ctx.rect(64, 208, 128, 30);
   ctx.fill();
   ctx.strokeStyle = '#00e5ff';
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 2;
   ctx.stroke();
 
   ctx.fillStyle = '#00e5ff';
-  ctx.font = '800 28px "Segoe UI", Arial, sans-serif';
-  ctx.fillText('PÁGINA', 256, 448);
+  ctx.font = '800 15px "Segoe UI", Arial, sans-serif';
+  ctx.fillText('PÁGINA', 128, 224);
 
   const tex = new THREE.CanvasTexture(c);
-  if (renderer && renderer.capabilities) {
-    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  }
   return tex;
 }
 
 // 9 marcos — cuadrícula 3×3
 const marcos = [];
+const BASE_GEO = new THREE.BoxGeometry(2.35, 0.12, 2.35);
+const RING_GEO = new THREE.RingGeometry(0.95, 1.15, 32);
+const LABEL_GEO = new THREE.PlaneGeometry(1.2, 0.35);
 for (let i = 0; i < MAX_FRAMES; i++) {
   const g = new THREE.Group();
-  const baseMat = new THREE.MeshStandardMaterial({ color:0x001133, emissive:0x0088ff, emissiveIntensity:0.2, transparent:true, opacity:0.55 });
-  const base = new THREE.Mesh(new THREE.BoxGeometry(2.8,0.18,2.8), baseMat);
-  base.position.y = 0.09; base.receiveShadow = true; g.add(base);
-  const ringMat = new THREE.MeshBasicMaterial({ color:0x00ffff, side:THREE.DoubleSide, transparent:true, opacity:0.2 });
-  const ring = new THREE.Mesh(new THREE.RingGeometry(1.1,1.3,32), ringMat);
-  ring.rotation.x = -Math.PI/2; ring.position.y = 0.19; g.add(ring);
-  const lc = document.createElement('canvas'); lc.width=512; lc.height=128;
+  const baseMat = new THREE.MeshLambertMaterial({ color:0x00142e, emissive:0x0088ff, emissiveIntensity:0.25, transparent:true, opacity:0.75 });
+  const base = new THREE.Mesh(BASE_GEO, baseMat);
+  base.position.y = 0.06; g.add(base);
+  const ringMat = new THREE.MeshBasicMaterial({ color:0x00ffff, side:THREE.DoubleSide, transparent:true, opacity:0.25, depthWrite:false });
+  const ring = new THREE.Mesh(RING_GEO, ringMat);
+  ring.rotation.x = -Math.PI/2; ring.position.y = 0.13; g.add(ring);
+  const lc = document.createElement('canvas'); lc.width=256; lc.height=64;
   const lctx = lc.getContext('2d');
-  lctx.fillStyle='rgba(0, 15, 35, 0.7)';
-  lctx.fillRect(0,0,512,128);
-  lctx.strokeStyle='rgba(0,229,255,0.45)';
-  lctx.lineWidth=6;
-  lctx.strokeRect(6,6,500,116);
+  lctx.fillStyle='rgba(0, 15, 35, 0.9)';
+  lctx.fillRect(0,0,256,64);
+  lctx.strokeStyle='rgba(0,229,255,0.6)';
+  lctx.lineWidth=4;
+  lctx.strokeRect(3,3,250,58);
   lctx.fillStyle='#00e5ff';
-  lctx.font='900 52px "Segoe UI", Arial, sans-serif';
+  lctx.font='900 36px "Segoe UI", Arial, sans-serif';
   lctx.textAlign='center';
   lctx.textBaseline='middle';
-  lctx.fillText(`M${i+1}`, 256, 64);
+  lctx.fillText(`M${i+1}`, 128, 33);
   const ltex = new THREE.CanvasTexture(lc);
-  const lmat = new THREE.MeshBasicMaterial({ map:ltex, transparent:true, opacity:0.55 });
-  const label = new THREE.Mesh(new THREE.PlaneGeometry(1.8,0.5), lmat);
-  label.rotation.x = -Math.PI/2; label.position.y = 0.02; label.position.z = 1.6; g.add(label);
+  const lmat = new THREE.MeshBasicMaterial({ map:ltex, transparent:true, opacity:0.85, depthWrite:false });
+  const label = new THREE.Mesh(LABEL_GEO, lmat);
+  label.rotation.x = -Math.PI/2; label.position.y = 0.14; label.position.z = 0.95; g.add(label);
   g.position.x = POS_FRAMES[i].x; g.position.z = POS_FRAMES[i].z;
   scene.add(g);
   marcos.push({ grupo:g, baseMat, ringMat, pagina:null });
 }
 
 const poolPaginas = new Map();
+// Geometrías compartidas por todas las páginas (un solo mesh por cubo)
+const PAGE_GEO = new THREE.BoxGeometry(PAGE_SIZE, PAGE_SIZE, 0.24);
 
 function crearMeshPagina(num) {
   const g = new THREE.Group();
   const tex = crearTexturaPagina(num);
-  const mat = new THREE.MeshStandardMaterial({ map:tex, emissive:0x00ffff, emissiveIntensity:0.25, roughness:0.2, metalness:0.3 });
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(2.05,2.05,0.28), mat);
-  mesh.position.y = 1.35;
-  mesh.rotation.x = -0.38; // Inclinación directa hacia la cámara para máxima visibilidad frontal
-  mesh.castShadow = true;
+  const mat = new THREE.MeshLambertMaterial({ map:tex, emissive:0x00e5ff, emissiveIntensity:0.25 });
+  const mesh = new THREE.Mesh(PAGE_GEO, mat);
+  mesh.position.y = PAGE_Y;
+  mesh.rotation.x = -CAM_ELEV; // Cara perpendicular a la cámara
   g.add(mesh);
-  const glowMat = new THREE.MeshBasicMaterial({ color:0x00ffff, transparent:true, opacity:0.12 });
-  const glow = new THREE.Mesh(new THREE.BoxGeometry(2.28,2.28,0.1), glowMat);
-  glow.position.y = 1.35;
-  glow.rotation.x = -0.38;
-  g.add(glow);
-  g.userData = { mesh, mat, glowMat, glow, num, lastUsed:0, targetX:0, targetZ:0, targetY:1.35 };
+  g.userData = { mesh, mat, num, lastUsed:0, targetX:0, targetZ:0, targetY:PAGE_Y };
   return g;
+}
+
+function obtenerPagina(num) {
+  let grupo = poolPaginas.get(num);
+  if (!grupo) { grupo = crearMeshPagina(num); poolPaginas.set(num, grupo); }
+  return grupo;
+}
+
+// Pre-carga en segundo plano de las texturas de página (evita tirones al
+// aparecer una página nueva por primera vez en celulares).
+function precargarPaginas(desde = 1, hasta = 30) {
+  const idle = window.requestIdleCallback || (cb => setTimeout(() => cb({ timeRemaining: () => 8 }), 40));
+  let n = desde;
+  const paso = (deadline) => {
+    while (n <= hasta && deadline.timeRemaining() > 4) {
+      const g = obtenerPagina(n++);
+      if (renderer.initTexture) renderer.initTexture(g.userData.mat.map);
+    }
+    if (n <= hasta) idle(paso);
+  };
+  idle(paso);
 }
 
 
 // ============================================================
-// PARTÍCULAS
+// PARTÍCULAS (con pool: se reutilizan mallas y materiales)
 // ============================================================
 const particulas = [];
-const partGeo = new THREE.SphereGeometry(0.09,6,6);
+const poolParticulas = [];
+const partGeo = new THREE.SphereGeometry(0.11,6,4);
 function explosion(x,y,z,color,cant=12,pot=4) {
-  for (let i=0;i<cant;i++) {
-    const mat = new THREE.MeshBasicMaterial({ color, transparent:true, opacity:1 });
-    const m = new THREE.Mesh(partGeo, mat);
-    m.position.set(x,y,z);
+  const total = IS_MOBILE ? Math.ceil(cant * 0.6) : cant;
+  for (let i=0;i<total;i++) {
+    let p = poolParticulas.pop();
+    if (!p) {
+      const mat = new THREE.MeshBasicMaterial({ transparent:true, opacity:1, depthWrite:false });
+      const mesh = new THREE.Mesh(partGeo, mat);
+      scene.add(mesh);
+      p = { mesh, mat };
+    }
+    p.mat.color.setHex(color); p.mat.opacity = 1;
+    p.mesh.visible = true;
+    p.mesh.position.set(x,y,z);
     const ang=Math.random()*Math.PI*2, phi=Math.random()*Math.PI-Math.PI/2;
     const vel=1+Math.random()*pot;
-    scene.add(m);
-    particulas.push({ mesh:m, mat, vx:Math.cos(ang)*Math.cos(phi)*vel, vy:Math.sin(phi)*vel+1.5, vz:Math.sin(ang)*Math.cos(phi)*vel, vida:25+Math.random()*15, vidaMax:35 });
+    p.vx=Math.cos(ang)*Math.cos(phi)*vel; p.vy=Math.sin(phi)*vel+1.5; p.vz=Math.sin(ang)*Math.cos(phi)*vel;
+    p.vida=25+Math.random()*15; p.vidaMax=35;
+    particulas.push(p);
   }
+}
+function liberarParticula(i) {
+  const p = particulas[i];
+  p.mesh.visible = false;
+  particulas.splice(i, 1);
+  poolParticulas.push(p);
 }
 
 // ============================================================
@@ -698,22 +801,13 @@ const estado = {
 };
 
 // ============================================================
-// POSICIONAMIENTO CENTRADO DEL BANNER SUPERIOR
-// ============================================================
-function centrarBannerSuperior(banner) {
-  banner.style.top = '52px';
-  banner.style.left = '50%';
-  banner.style.transform = 'translateX(-50%)';
-}
-
-// ============================================================
 // UI REFS
 // ============================================================
 const $=id=>document.getElementById(id);
 const scoreEl=$('score'), comboEl=$('combo'), hpEl=$('hp'), levelEl=$('level');
 const requestBanner=$('request-banner'), requestPage=$('request-page');
 const timerContainer=$('timer-container'), timerBar=$('timer-bar');
-const resultMsg=$('result-msg');
+const resultMsg=$('result-msg'), resultText=$('result-text');
 const lruItems=$('lru-items');
 const flashEl=$('flash');
 const gameoverEl=$('gameover');
@@ -722,12 +816,24 @@ const playerBadge=$('player-badge');
 const evictBannerTop=$('evict-banner-top'), evictPageNum=$('evict-page-num');
 const lruLabel=$('lru-label');
 
-function mostrarResultado(texto,tipo) {
-  const colores={hit:'#0f0',miss:'#ff0',correct:'#0f0',wrong:'#f00',timeout:'#f80',decide:'#f80'};
-  resultMsg.textContent=texto; resultMsg.style.color=colores[tipo]||'#fff';
+function mostrarResultado(texto, tipo) {
+  const colores = { hit:'#00ff88', miss:'#ffff00', correct:'#00ff88', wrong:'#ff2255', timeout:'#ff9800', decide:'#ff9800' };
+  const col = colores[tipo] || '#00e5ff';
+  if (resultText) {
+    resultText.textContent = texto;
+    resultText.style.color = col;
+    resultText.style.borderColor = col;
+  } else if (resultMsg) {
+    resultMsg.textContent = texto;
+    resultMsg.style.color = col;
+  }
+  requestBanner.classList.remove('show');
+  if (tipo !== 'decide' && evictBannerTop) {
+    evictBannerTop.classList.remove('show');
+  }
   resultMsg.classList.add('show');
   clearTimeout(resultMsg._t);
-  resultMsg._t=setTimeout(()=>resultMsg.classList.remove('show'),TIEMPOS.resultado-100);
+  resultMsg._t = setTimeout(() => resultMsg.classList.remove('show'), Math.max(160, TIEMPOS.resultado - 40));
 }
 
 function flash(color) {
@@ -736,28 +842,29 @@ function flash(color) {
 }
 
 function actualizarHUD() {
-  scoreEl.textContent=estado.puntos; comboEl.textContent=estado.combo;
+  scoreEl.textContent = estado.puntos;
+  comboEl.textContent = estado.combo;
   const vidas = Math.max(0, 3 - estado.fallosTotales);
-  let hearts = '❤️'.repeat(vidas) + '🖤'.repeat(3 - vidas);
-  if (estado.fallosConsecutivos === 1) {
-    hearts += ` <span style="color:#ff3355;font-size:10px;font-weight:900;margin-left:4px">⚠️ ¡1 FALLO SEGUIDO!</span>`;
+  hpEl.textContent = '❤️'.repeat(vidas) + '🖤'.repeat(3 - vidas);
+  const hudHp = $('hud-hp');
+  if (hudHp) {
+    if (estado.fallosConsecutivos === 1) hudHp.classList.add('danger');
+    else hudHp.classList.remove('danger');
   }
-  hpEl.innerHTML=hearts;
-  levelEl.textContent=estado.nivel;
-  $('s-hits').textContent=estado.aciertos;
-  $('s-misses').textContent=estado.fallos;
-  $('s-ec').textContent=estado.eviccionesCorrectas;
-  $('s-ew').textContent=`${estado.fallosTotales}/3 (cons: ${estado.fallosConsecutivos}/2)`;
-  playerBadge.textContent=nombreJugador?`👤 ${nombreJugador}`:'';
+  levelEl.textContent = estado.nivel;
+  $('s-hits').textContent = estado.aciertos;
+  $('s-misses').textContent = estado.fallos;
+  $('s-ec').textContent = estado.eviccionesCorrectas;
+  $('s-ew').textContent = `${estado.fallosTotales}/3 (${estado.fallosConsecutivos}/2 seg.)`;
+  playerBadge.textContent = nombreJugador ? `👤 ${nombreJugador}` : '';
 }
 
 function actualizarAlgoBadge() {
-  algoBadge.textContent=estado.algoritmoActual;
-  algoBadge.className=estado.algoritmoActual==='LRU'?'lru':'ws';
-  algoBadge.id='algo-badge';
-  lruLabel.textContent=estado.algoritmoActual==='LRU'
-    ?'ORDEN LRU — izq = menos usada (🔴) → der = más usada (🟢)'
-    :`WORKING SET (W=${WS_WINDOW}) — 🔴 fuera del WS → candidata a desalojo`;
+  algoBadge.textContent = estado.algoritmoActual;
+  algoBadge.className = estado.algoritmoActual === 'LRU' ? 'lru' : 'ws';
+  lruLabel.textContent = estado.algoritmoActual === 'LRU'
+    ? 'ORDEN LRU — izq = menos usada (🔴) → der = más usada (🟢)'
+    : `WORKING SET (W=${WS_WINDOW}) — 🔴 fuera del WS → candidata a desalojo`;
 }
 
 // ============================================================
@@ -788,18 +895,18 @@ function actualizarOrdenLRU() {
   const ws=calcularWorkingSet();
   const victima=determinarVictima();
 
-  // Coloración de páginas
+  // Coloración de páginas 3D
   orden.forEach((marco,i)=>{
     const p=marco.pagina.userData;
     const t=orden.length<=1?1:i/(orden.length-1);
     let hue;
     if (estado.algoritmoActual==='WS') {
-      hue=ws.has(p.num)?0.3:0.0;
+      hue=ws.has(p.num)?0.33:0.0;
     } else {
       hue=t*0.33;
     }
     const col=new THREE.Color().setHSL(hue,1,0.45);
-    p.mat.emissive.copy(col); p.glowMat.color.copy(col);
+    p.mat.emissive.copy(col);
     p.mat.emissiveIntensity=0.35+t*0.3;
   });
 
@@ -809,39 +916,60 @@ function actualizarOrdenLRU() {
     marco.baseMat.emissive.setHex(0x0088ff); marco.baseMat.emissiveIntensity=0.25;
   });
 
-  // Fila inferior de orden LRU / WS
+  // Fila inferior de orden LRU / WS con botones táctiles grandes
   lruItems.innerHTML='';
   orden.forEach((marco,i)=>{
     const t=orden.length<=1?1:i/(orden.length-1);
     const wsSet=calcularWorkingSet();
     const pNum=marco.pagina.userData.num;
-    const esVictima=(victima&&marco===victima);
+    const esVictima=(victima&&marco===victima&&estado.modo==='decidiendo');
     const chip=document.createElement('div');
-    chip.className='lru-chip';
+    chip.className='lru-chip' + (esVictima ? ' victim' : '');
+
+    let tagText = '';
+    let colBorder = '';
+    let colBg = '';
+    let colText = '';
 
     if (estado.algoritmoActual==='WS') {
       const enWS=wsSet.has(pNum);
       if (esVictima) {
-        chip.innerHTML=`<span style="font-size:16px;font-weight:900">${pNum}</span><span class="lru-chip-evict-tag">DESALOJAR</span>`;
-        chip.style.color='#fff'; chip.style.borderColor='#ff2255'; chip.style.background='rgba(255,34,85,0.4)'; chip.style.boxShadow='0 0 14px rgba(255,34,85,0.7)';
+        tagText = 'DESALOJAR';
+        colText = '#ffffff';
+        colBorder = '#ff2255';
+        colBg = 'rgba(255,34,85,0.45)';
       } else if (enWS) {
-        chip.innerHTML=`<span>${pNum}</span><span style="font-size:10px;color:#00ff88;margin-left:3px">(WS)</span>`;
-        chip.style.color='#00ff88'; chip.style.borderColor='rgba(0,255,136,0.6)'; chip.style.background='rgba(0,255,136,0.12)';
+        tagText = 'EN WS';
+        colText = '#00ff88';
+        colBorder = 'rgba(0,255,136,0.6)';
+        colBg = 'rgba(0,255,136,0.12)';
       } else {
-        chip.innerHTML=`<span>${pNum}</span><span style="font-size:10px;color:#ff8866;margin-left:3px">(OUT)</span>`;
-        chip.style.color='#ff6644'; chip.style.borderColor='rgba(255,102,68,0.6)'; chip.style.background='rgba(255,102,68,0.15)';
+        tagText = 'FUERA';
+        colText = '#ff6644';
+        colBorder = 'rgba(255,102,68,0.6)';
+        colBg = 'rgba(255,102,68,0.15)';
       }
     } else {
       const hue=Math.round(t*0.33*360);
       if (esVictima) {
-        chip.innerHTML=`<span style="font-size:16px;font-weight:900">${pNum}</span><span class="lru-chip-evict-tag">DESALOJAR</span>`;
-        chip.style.color='#fff'; chip.style.borderColor='#ff2255'; chip.style.background='rgba(255,34,85,0.4)'; chip.style.boxShadow='0 0 14px rgba(255,34,85,0.7)';
+        tagText = 'DESALOJAR';
+        colText = '#ffffff';
+        colBorder = '#ff2255';
+        colBg = 'rgba(255,34,85,0.45)';
       } else {
-        chip.textContent=String(pNum);
-        chip.style.color=`hsl(${hue},100%,60%)`; chip.style.borderColor=`hsl(${hue},100%,40%)`; chip.style.background=`hsla(${hue},100%,50%,0.1)`;
+        tagText = i===0 ? 'MENOS USO' : (i===orden.length-1 ? 'RECIENTE' : `#${i+1}`);
+        colText = `hsl(${hue},100%,65%)`;
+        colBorder = `hsl(${hue},100%,42%)`;
+        colBg = `hsla(${hue},100%,50%,0.12)`;
       }
     }
-    chip.title = `Página ${pNum}`;
+
+    chip.style.color = colText;
+    chip.style.borderColor = colBorder;
+    chip.style.background = colBg;
+    chip.innerHTML = `<span class="chip-num">${pNum}</span><span class="chip-tag">${tagText}</span>`;
+    chip.title = `Página ${pNum} (${tagText})`;
+
     chip.addEventListener('click', (e) => {
       e.stopPropagation();
       if (estado.modo === 'decidiendo' && marco && marco.pagina) {
@@ -856,7 +984,7 @@ function actualizarOrdenLRU() {
 }
 
 // ============================================================
-// INDICADOR DE DESALOJO INFERIOR (palabra DESALOJAR abajo, no en los recuadros)
+// INDICADOR DE DESALOJO SUPERIOR
 // ============================================================
 function actualizarVictimaIndicador(victima) {
   estado.victimaActual=victima;
@@ -866,6 +994,10 @@ function actualizarVictimaIndicador(victima) {
   }
   if (evictBannerTop && evictPageNum) {
     evictPageNum.textContent = victima.pagina.userData.num;
+    const headEl = $('evict-head');
+    if (headEl) headEl.textContent = `⚡ MEMORIA LLENA [${estado.algoritmoActual}]`;
+    resultMsg.classList.remove('show');
+    requestBanner.classList.remove('show');
     evictBannerTop.classList.add('show');
   }
 }
@@ -932,11 +1064,12 @@ function siguienteSolicitud() {
   const hint=$('request-algo-hint');
   if (estado.algoritmoActual==='WS') {
     hint.textContent=`⚙️ Working Set (W=${WS_WINDOW})`;
-    hint.style.display='block';
+    hint.style.display='inline';
   } else {
     hint.textContent=''; hint.style.display='none';
   }
-  centrarBannerSuperior(requestBanner);
+  if (evictBannerTop) evictBannerTop.classList.remove('show');
+  if (resultMsg) resultMsg.classList.remove('show');
   requestBanner.classList.add('show');
   timerContainer.classList.remove('show');
   ocultarVictimaIndicador();
@@ -952,8 +1085,8 @@ function procesarSolicitud(num) {
     estado.fallosConsecutivos=0;
     estado.modo='resultado';
     marcoConPagina.pagina.userData.lastUsed=Date.now();
-    marcoConPagina.pagina.userData.targetY=2.4;
-    setTimeout(()=>{ if(marcoConPagina.pagina) marcoConPagina.pagina.userData.targetY=1.35; },100);
+    marcoConPagina.pagina.userData.targetY=PAGE_Y_HIT;
+    setTimeout(()=>{ if(marcoConPagina.pagina) marcoConPagina.pagina.userData.targetY=PAGE_Y; },120);
     actualizarOrdenLRU();
     estado.aciertos++; estado.puntos+=10*estado.combo; estado.xp+=5;
     estado.combo=Math.min(estado.combo+1,8); estado.ultimoAcierto=Date.now();
@@ -976,7 +1109,7 @@ function procesarSolicitud(num) {
     setTimeout(siguienteSolicitud,TIEMPOS.resultado);
 
   } else {
-    // MISS con memoria llena
+    // MISS con memoria llena -> Se muestra cartel de desalojo en msg-slot
     estado.modo='decidiendo';
     estado.timerInicio=Date.now();
     let timerDecision;
@@ -988,11 +1121,9 @@ function procesarSolicitud(num) {
     }
     estado.duracionDecisionActual = timerDecision;
     timerContainer.classList.add('show');
-    const algoHint=estado.algoritmoActual==='WS'
-      ?`⚡ ¡Memoria llena! [WS] Dispará la página fuera del conjunto de trabajo`
-      :`⚡ ¡Memoria llena! [LRU] Dispará la página MENOS usada`;
-    mostrarResultado(algoHint,'decide');
+    timerBar.style.transform = 'scaleX(1)';
     requestBanner.classList.remove('show');
+    if (resultMsg) resultMsg.classList.remove('show');
     actualizarOrdenLRU();
   }
 }
@@ -1014,8 +1145,8 @@ function procesarDisparo(paginaGrupo) {
     estado.timerDinamicoMs=Math.max(MIN_TIMER,estado.timerDinamicoMs*FACTOR_ACIERTO);
     estado.penalizacionActiva=false;
     const msg=estado.algoritmoActual==='WS'
-      ?`✅ ¡CORRECTO! [WS] Desalojaste página ${victima.pagina.userData.num}`
-      :`✅ ¡CORRECTO! [LRU] Desalojaste página ${victima.pagina.userData.num}`;
+      ?`✅ ¡CORRECTO! Desalojaste página ${victima.pagina.userData.num}`
+      :`✅ ¡CORRECTO! Desalojaste página ${victima.pagina.userData.num}`;
     mostrarResultado(msg,'correct'); sfx.correcto(); flash('#0f0');
   } else {
     estado.fallosConsecutivos++;
@@ -1025,14 +1156,14 @@ function procesarDisparo(paginaGrupo) {
     estado.penalizacionActiva=true;
     const victimaNombre=victima&&victima.pagina?victima.pagina.userData.num:'?';
     const msg=estado.algoritmoActual==='WS'
-      ?`💀 ¡FALLO! [WS] Debías desalojar página ${victimaNombre}`
-      :`💀 ¡FALLO! [LRU] Debías desalojar página ${victimaNombre}`;
+      ?`💀 ¡FALLO! [WS] Debías desalojar pág ${victimaNombre}`
+      :`💀 ¡FALLO! [LRU] Debías desalojar pág ${victimaNombre}`;
     mostrarResultado(msg,'wrong'); sfx.error(); flash('#f00'); estado.screenShake=1.0;
   }
 
   const wx=victima&&victima.pagina?victima.pagina.position.x:0;
   const wz=victima&&victima.pagina?victima.pagina.position.z:0;
-  explosion(wx,2,wz,esCorrecta?0x00ff00:0xff0044,16,4.5);
+  explosion(wx,PAGE_Y,wz,esCorrecta?0x00ff00:0xff0044,16,4.5);
   if (victima) {
     destruirPagina(victima);
     cargarPagina(victima,estado.requestActual);
@@ -1052,15 +1183,14 @@ function procesarDisparo(paginaGrupo) {
 }
 
 function cargarPagina(marco,num) {
-  let grupo=poolPaginas.has(num)?poolPaginas.get(num):crearMeshPagina(num);
-  if (!poolPaginas.has(num)) poolPaginas.set(num,grupo);
+  let grupo=obtenerPagina(num);
   grupo.userData.lastUsed=Date.now(); grupo.userData.num=num;
   grupo.visible=true;
   grupo.position.x=marco.grupo.position.x;
   grupo.position.z=marco.grupo.position.z;
   grupo.userData.targetX=marco.grupo.position.x;
   grupo.userData.targetZ=marco.grupo.position.z;
-  grupo.userData.targetY=1.35;
+  grupo.userData.targetY=PAGE_Y;
   scene.add(grupo); marco.pagina=grupo;
   actualizarOrdenLRU();
 }
@@ -1097,7 +1227,6 @@ function intentarDisparo(cx,cy) {
   marcos.forEach(m=>{
     if (m.pagina) {
       targets.push({ obj:m.pagina.userData.mesh, pagina:m.pagina });
-      targets.push({ obj:m.pagina.userData.glow, pagina:m.pagina });
       m.grupo.children.forEach(c=>targets.push({ obj:c, pagina:m.pagina }));
     }
   });
@@ -1295,8 +1424,10 @@ function morir(motivo='Fin de partida') {
 
 function reset() {
   marcos.forEach(m=>destruirPagina(m));
-  particulas.forEach(p=>scene.remove(p.mesh));
-  particulas.length=0; poolPaginas.clear(); referencHistory.length=0;
+  for (let i = particulas.length - 1; i >= 0; i--) {
+    liberarParticula(i);
+  }
+  poolPaginas.clear(); referencHistory.length=0;
   estado.vida=3; estado.fallosConsecutivos=0; estado.fallosTotales=0;
   estado.puntos=0; estado.xp=0; estado.nivel=1;
   estado.aciertos=0; estado.fallos=0; estado.eviccionesCorrectas=0; estado.eviccionesIncorrectas=0;
@@ -1306,6 +1437,7 @@ function reset() {
   actualizarAlgoBadge(); actualizarHUD(); actualizarOrdenLRU();
   gameoverEl.classList.add('oculto');
   requestBanner.classList.remove('show'); timerContainer.classList.remove('show');
+  if (evictBannerTop) evictBannerTop.classList.remove('show');
   resultMsg.classList.remove('show'); ocultarVictimaIndicador(); lruItems.innerHTML='';
   setTimeout(siguienteSolicitud,150);
 }
@@ -1347,9 +1479,9 @@ $('go-ranking-btn').addEventListener('click_old',()=>{
 // RESIZE
 // ============================================================
 addEventListener('resize',()=>{
-  actualizarCamaraAspecto();
   renderer.setSize(innerWidth,innerHeight);
-  renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+  renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));
+  actualizarCamara();
 });
 
 // ============================================================
@@ -1364,7 +1496,7 @@ function update() {
     const elapsed=Date.now()-estado.timerInicio;
     const duracion=estado.duracionDecisionActual||3000;
     const remaining=Math.max(0,1-elapsed/duracion);
-    timerBar.style.width=(remaining*100)+'%';
+    timerBar.style.transform = `scaleX(${remaining})`;
 
     if (elapsed>=duracion) {
       estado.modo='resultado';
@@ -1378,7 +1510,7 @@ function update() {
       const victima=determinarVictima();
       if (victima&&victima.pagina) {
         mostrarResultado(`⏰ ¡Tiempo agotado! Se desalojó página ${victima.pagina.userData.num}`,'timeout');
-        explosion(victima.pagina.position.x,2,victima.pagina.position.z,0xff8800,12,4);
+        explosion(victima.pagina.position.x,PAGE_Y,victima.pagina.position.z,0xff8800,12,4);
         destruirPagina(victima); cargarPagina(victima,estado.requestActual);
       }
       sfx.timeout(); flash('#f80'); actualizarHUD();
@@ -1404,17 +1536,18 @@ function update() {
       const ud=m.pagina.userData;
       m.pagina.position.x+=(ud.targetX-m.pagina.position.x)*0.35;
       m.pagina.position.z+=(ud.targetZ-m.pagina.position.z)*0.35;
-      const hoverY = ud.targetY + Math.sin(estado.frame*0.05 + i)*0.06;
-      m.pagina.position.y+=(hoverY-m.pagina.position.y)*0.38;
-      // Número siempre de frente al jugador con sutil ondulación
-      m.pagina.rotation.y = Math.sin(estado.frame*0.035 + i)*0.08;
-      ud.glowMat.opacity=0.08+Math.sin(estado.frame*0.05)*0.04;
+      const hoverY = ud.targetY + Math.sin(estado.frame*0.05 + i)*0.04;
+      m.pagina.position.y+=(hoverY-m.pagina.position.y)*0.35;
+      // Número siempre de frente al jugador con sutil oscilación
+      m.pagina.rotation.y = Math.sin(estado.frame*0.035 + i)*0.05;
     }
   });
 
   if (estado.modo==='decidiendo') {
     paginasCargadas().forEach((m,i)=>{
-      if (m.pagina) m.pagina.userData.glowMat.opacity=0.22+Math.sin(estado.frame*0.08+i)*0.17;
+      if (m.pagina) {
+        m.pagina.userData.mat.emissiveIntensity = 0.3 + Math.sin(estado.frame*0.08+i)*0.18;
+      }
     });
   }
 
@@ -1423,18 +1556,20 @@ function update() {
     pt.mesh.position.x+=pt.vx*0.05; pt.mesh.position.y+=pt.vy*0.05; pt.mesh.position.z+=pt.vz*0.05;
     pt.vy-=0.1; pt.vx*=0.96; pt.vz*=0.96; pt.vida--;
     pt.mat.opacity=pt.vida/pt.vidaMax;
-    if (pt.vida<=0) { scene.remove(pt.mesh); particulas.splice(i,1); }
+    if (pt.vida<=0) { liberarParticula(i); }
   }
 
   colorLight.color.setHex(cfg.color);
-  if (estado.screenShake>0.01) estado.screenShake*=0.88;
-  const isPortrait=window.innerHeight>window.innerWidth;
-  const targetY=isPortrait?38:26;
-  const targetZ=isPortrait?32:22;
-  camera.position.z+=(targetZ-camera.position.z)*0.05;
-  camera.position.y=targetY+(estado.screenShake>0.1?(Math.random()-0.5)*estado.screenShake*0.32:0);
-  camera.position.x+=(0-camera.position.x)*0.05+(estado.screenShake>0.1?(Math.random()-0.5)*estado.screenShake*0.24:0);
-  camera.lookAt(0,0,0);
+  const baseCamPos = CAM_TARGET.clone().addScaledVector(CAM_DIR, camDistBase);
+  if (estado.screenShake > 0.01) {
+    estado.screenShake *= 0.88;
+    const shakeX = (Math.random() - 0.5) * estado.screenShake * 0.45;
+    const shakeY = (Math.random() - 0.5) * estado.screenShake * 0.35;
+    camera.position.set(baseCamPos.x + shakeX, baseCamPos.y + shakeY, baseCamPos.z);
+  } else {
+    camera.position.lerp(baseCamPos, 0.1);
+  }
+  camera.lookAt(CAM_TARGET);
 }
 
 function loop() { update(); renderer.render(scene,camera); requestAnimationFrame(loop); }
@@ -1478,6 +1613,7 @@ function generarQR() {
 }
 generarQR();
 cargarRankingGlobal(); // Preload en segundo plano
+precargarPaginas(1, 16); // Preload de texturas sin bloquear hilo principal
 
 // ============================================================
 // WELCOME SCREEN
