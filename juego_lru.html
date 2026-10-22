@@ -465,32 +465,32 @@ for (let row = 0; row < 3; row++) {
 /**
  * DIFICULTAD DINÁMICA
  */
-const MIN_TIMER = 2200;
-const MAX_TIMER = 6500;
-const FACTOR_ACIERTO = 0.985;
+const MIN_TIMER = 1400;
+const MAX_TIMER = 4500;
+const FACTOR_ACIERTO = 0.975;
 
 // Ventana de referencias para Working Set
 const WS_WINDOW = 5;
 
 const NIVELES = [
-  { maxPage: 12, timerMs: 6000, color: 0x00e5ff },
-  { maxPage: 14, timerMs: 5400, color: 0x00ffa6 },
-  { maxPage: 16, timerMs: 4800, color: 0xa0ff00 },
-  { maxPage: 18, timerMs: 4200, color: 0xffea00 },
-  { maxPage: 20, timerMs: 3700, color: 0xff9800 },
-  { maxPage: 22, timerMs: 3300, color: 0xff5500 },
-  { maxPage: 25, timerMs: 2900, color: 0xff2200 },
-  { maxPage: 30, timerMs: 2500, color: 0xff0044 },
+  { maxPage: 12, timerMs: 4200, color: 0x00e5ff },
+  { maxPage: 14, timerMs: 3750, color: 0x00ffa6 },
+  { maxPage: 16, timerMs: 3350, color: 0xa0ff00 },
+  { maxPage: 18, timerMs: 2950, color: 0xffea00 },
+  { maxPage: 20, timerMs: 2600, color: 0xff9800 },
+  { maxPage: 22, timerMs: 2250, color: 0xff5500 },
+  { maxPage: 25, timerMs: 1950, color: 0xff2200 },
+  { maxPage: 30, timerMs: 1650, color: 0xff0044 },
 ];
 
 function cfgNivel(n) {
   const i = Math.min(n - 1, NIVELES.length - 1);
   const b = NIVELES[i];
   const extra = Math.max(0, n - NIVELES.length);
-  return { maxPage: b.maxPage + extra, timerMs: Math.max(MIN_TIMER, b.timerMs - extra * 100), color: b.color };
+  return { maxPage: b.maxPage + extra, timerMs: Math.max(MIN_TIMER, b.timerMs - extra * 70), color: b.color };
 }
 
-const TIEMPOS = { mostrarRequest: 450, resultado: 600 };
+const TIEMPOS = { mostrarRequest: 280, resultado: 380 };
 
 // ============================================================
 // THREE.JS SETUP — ULTRA OPTIMIZADO PARA MÓVIL
@@ -1113,7 +1113,7 @@ function procesarSolicitud(num) {
     estado.timerInicio=Date.now();
     let timerDecision;
     if (estado.penalizacionActiva) {
-      timerDecision = Math.max(MIN_TIMER, cfgNivel(estado.nivel).timerMs * 0.80);
+      timerDecision = Math.max(MIN_TIMER, cfgNivel(estado.nivel).timerMs * 0.70);
       estado.penalizacionActiva = false;
     } else {
       timerDecision = Math.min(MAX_TIMER, Math.max(MIN_TIMER, estado.timerDinamicoMs));
@@ -1670,7 +1670,7 @@ function update() {
     if (estado.victimaActual&&estado.victimaActual.pagina) actualizarVictimaIndicador(estado.victimaActual);
   }
 
-  if (Date.now()-estado.ultimoAcierto>6500&&estado.combo>1) { estado.combo=1; comboEl.textContent=1; }
+  if (Date.now()-estado.ultimoAcierto>4500&&estado.combo>1) { estado.combo=1; comboEl.textContent=1; }
 
   marcos.forEach((m,i)=>{
     if (m.pagina) {
