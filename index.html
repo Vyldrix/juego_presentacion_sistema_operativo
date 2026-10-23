@@ -1492,13 +1492,20 @@ async function sincronizarRanking(nuevoResultado = null) {
     } catch {}
   }
 
-  // 3. Fusión por ID único para evitar pisar partidas de otros jugadores
-  const map = new Map();
-  [...remoteList, ...local, ...pending].forEach(item => {
-    if (item && item.id) map.set(item.id, item);
-  });
-
-  const merged = Array.from(map.values());
+  // 3. Fusión segura:
+  // Si hay conexión, la nube es la fuente de la verdad (no resucita partidas borradas).
+  let merged = [];
+  if (conectado) {
+    const map = new Map();
+    remoteList.forEach(item => { if (item && item.id) map.set(item.id, item); });
+    pending.forEach(item => { if (item && item.id) map.set(item.id, item); });
+    merged = Array.from(map.values());
+  } else {
+    const map = new Map();
+    local.forEach(item => { if (item && item.id) map.set(item.id, item); });
+    pending.forEach(item => { if (item && item.id) map.set(item.id, item); });
+    merged = Array.from(map.values());
+  }
   merged.sort((a,b)=>b.puntos!==a.puntos?b.puntos-a.puntos:b.tasa!==a.tasa?b.tasa-a.tasa:a.duracion-b.duracion);
   const topList = merged.slice(0, 100);
 
@@ -1565,6 +1572,16 @@ function renderizarRanking(ranking, miResultado, source = 'cloud', targetListId 
 
 if (rankingChannel) {
   rankingChannel.onmessage = (e) => {
+    if (e.data && e.data.type === 'RANKING_RESET') {
+      guardarRankingLocal([]);
+      guardarPendingSync([]);
+      ultimoRankingHash = 'empty_' + Date.now();
+      const modalAbierto = rankingModal && !rankingModal.classList.contains('oculto');
+      const goAbierto = gameoverEl && !gameoverEl.classList.contains('oculto');
+      if (modalAbierto) renderizarRanking([], null, 'cloud', 'modal-ranking-list', 'modal-ranking-status');
+      if (goAbierto) renderizarRanking([], null, 'cloud', 'ranking-list', 'ranking-status');
+      return;
+    }
     if (e.data && e.data.type === 'RANKING_UPDATED') {
       const local = cargarRankingLocal();
       const modalAbierto = rankingModal && !rankingModal.classList.contains('oculto');
@@ -1706,23 +1723,31 @@ function cerrarModalRanking() {
 async function limpiarHistorialGlobal() {
   const seguro = confirm('⚠️ ¿Estás seguro de que querés borrar todo el historial y ranking?\n\nEsta acción reiniciará las posiciones a cero para todos los jugadores.');
   if (!seguro) return;
+  try {
+    localStorage.removeItem(RANKING_KEY);
+    localStorage.removeItem(PENDING_SYNC_KEY);
+    localStorage.removeItem('lrudefender_ranking_v2');
+    localStorage.removeItem('lrudefender_ranking');
+  } catch {}
   guardarRankingLocal([]);
   guardarPendingSync([]);
-  ultimoRankingHash = '';
+  ultimoRankingHash = 'empty_' + Date.now();
   renderizarRanking([], null, 'cloud', 'modal-ranking-list', 'modal-ranking-status');
   renderizarRanking([], null, 'cloud', 'ranking-list', 'ranking-status');
   try {
     await fetch(UPSTASH_DIRECT_URL, {
       method: 'POST',
       headers: { Authorization: `Bearer ${UPSTASH_DIRECT_TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(['SET', 'lrudefender_ranking', JSON.stringify([])])
+      body: JSON.stringify(['SET', 'lrudefender_ranking', '[]'])
     });
-  } catch {}
+  } catch (err) {
+    console.warn('Error borrando en Upstash:', err);
+  }
   try {
     await fetch(`${API_RANKING_URL}?action=reset`, { method: 'POST' });
   } catch {}
   try {
-    rankingChannel?.postMessage({ type: 'RANKING_UPDATED', hash: '' });
+    rankingChannel?.postMessage({ type: 'RANKING_RESET' });
   } catch {}
   alert('✅ El historial y ranking se han reiniciado a cero.');
 }

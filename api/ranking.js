@@ -1,17 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 
-// Credenciales directas de Upstash (evita restricciones de pago de Vercel)
 const KV_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || "https://organic-meerkat-236272.upstash.io";
 const KV_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || "gQAAAAAAA5rwAAIgcDFhMzFjY2QyYjY3MTg0NTRjYjFiOWUxNDczNjg2YjQwNQ";
 const LOCAL_DATA_FILE = path.join(process.cwd(), 'ranking.json');
-
-const INITIAL_SCORES = [
-  { id: 'play_1792445065814_1ngil4', nombre: '11', puntos: 12655, nivel: 10, aciertos: 33, eviccionesCorrectas: 52, tasa: 89, duracion: 47, fecha: '2026-10-19T21:24:25.814Z' },
-  { id: 'play_1792444325121_fwwqof', nombre: 'ssnk', puntos: 2820, nivel: 3, aciertos: 12, eviccionesCorrectas: 11, tasa: 68, duracion: 21, fecha: '2026-10-19T21:12:05.121Z' },
-  { id: 'play_1792444296308_2nmqb4', nombre: 'ssnk', puntos: 2250, nivel: 3, aciertos: 6, eviccionesCorrectas: 11, tasa: 61, duracion: 20, fecha: '2026-10-19T21:11:36.308Z' },
-  { id: 'play_1792444403947_3y2a6c', nombre: 'Franco', puntos: 100, nivel: 1, aciertos: 4, eviccionesCorrectas: 0, tasa: 27, duracion: 9, fecha: '2026-10-19T21:13:23.947Z' }
-];
 
 async function obtenerRankingNube() {
   if (KV_URL && KV_TOKEN) {
@@ -22,9 +14,9 @@ async function obtenerRankingNube() {
       });
       if (res.ok) {
         const json = await res.json();
-        if (json.result) {
+        if (json.result !== null && json.result !== undefined) {
           const parsed = typeof json.result === 'string' ? JSON.parse(json.result) : json.result;
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          if (Array.isArray(parsed)) return parsed;
         }
       }
     } catch (err) {
@@ -32,16 +24,16 @@ async function obtenerRankingNube() {
     }
   }
 
-  // Fallback local en caso de pruebas offline
+  // Fallback a ranking.json local
   try {
     if (fs.existsSync(LOCAL_DATA_FILE)) {
       const raw = fs.readFileSync(LOCAL_DATA_FILE, 'utf8');
       const data = JSON.parse(raw);
-      if (Array.isArray(data) && data.length > 0) return data;
+      if (Array.isArray(data)) return data;
     }
   } catch {}
 
-  return INITIAL_SCORES;
+  return [];
 }
 
 async function guardarRankingNube(ranking) {
@@ -61,7 +53,6 @@ async function guardarRankingNube(ranking) {
     }
   }
 
-  // Guardar copia local si el entorno lo permite
   try {
     fs.writeFileSync(LOCAL_DATA_FILE, JSON.stringify(ranking, null, 2), 'utf8');
   } catch {}
@@ -78,7 +69,14 @@ module.exports = async function handler(req, res) {
     return res.status(204).end();
   }
 
-  // GET: Obtener ranking ordenado
+  // Reset del ranking
+  const urlObj = new URL(req.url, 'http://localhost');
+  if (urlObj.searchParams.get('action') === 'reset' || req.query?.action === 'reset') {
+    await guardarRankingNube([]);
+    return res.status(200).json({ ok: true, count: 0, ranking: [] });
+  }
+
+  // GET: Obtener ranking
   if (req.method === 'GET') {
     const ranking = await obtenerRankingNube();
     return res.status(200).json({
@@ -88,12 +86,17 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  // POST: Agregar nuevo resultado o lista de resultados
+  // POST: Agregar nuevo resultado
   if (req.method === 'POST') {
     try {
       let body = req.body;
       if (typeof body === 'string') {
         try { body = JSON.parse(body); } catch {}
+      }
+
+      if (body && (body.action === 'reset' || body.reset === true)) {
+        await guardarRankingNube([]);
+        return res.status(200).json({ ok: true, count: 0, ranking: [] });
       }
 
       const incoming = Array.isArray(body)
@@ -103,7 +106,6 @@ module.exports = async function handler(req, res) {
       const current = await obtenerRankingNube();
       const map = new Map();
 
-      // Fusionar asegurando unicidad por id (para no pisar resultados concurrentes de 30 personas)
       current.forEach(item => { if (item && item.id) map.set(item.id, item); });
       incoming.forEach(item => { if (item && item.id) map.set(item.id, item); });
 
