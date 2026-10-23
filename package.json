@@ -1,0 +1,17 @@
+{
+  "name": "juego-presentacion-sistema-operativo",
+  "version": "1.0.0",
+  "description": "Juego Educativo de Memoria Virtual LRU Defender",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "lru",
+    "operating-systems",
+    "game",
+    "virtual-memory"
+  ],
+  "author": "",
+  "license": "MIT"
+}
