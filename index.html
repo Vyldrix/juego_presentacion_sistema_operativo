@@ -169,6 +169,9 @@
   #ranking-modal-content h2{color:#00e5ff;font-size:19px;margin-bottom:6px;text-align:center}
   .rank-modal-btn{min-height:44px;padding:10px 18px;font-size:13px;font-weight:800;border:none;border-radius:10px;cursor:pointer}
   .rank-modal-btn.close{background:rgba(255,255,255,0.1);color:#fff}
+  .rank-modal-btn.danger{background:rgba(255,34,85,0.15);border:1px solid #ff2255;color:#ff4466;font-size:12px}
+  .rank-modal-btn.danger:hover{background:rgba(255,34,85,0.3)}
+  .rank-modal-btn.danger:active{transform:scale(0.96)}
   #modal-ranking-refresh{background:linear-gradient(135deg,#00e5ff,#00ff88);color:#001a20}
   #welcome-rank-btn{display:block;width:100%;min-height:46px;margin-top:8px;padding:10px;font-size:13px;font-weight:800;letter-spacing:1px;background:rgba(255,215,0,0.08);border:2px solid rgba(255,215,0,0.45);border-radius:12px;color:#ffd700;cursor:pointer;transition:all 0.15s;text-transform:uppercase}
   #welcome-rank-btn:active{transform:scale(0.97)}
@@ -392,8 +395,9 @@
     <p style="font-size:12px;color:#8ab4d8;margin-bottom:10px;text-align:center">Partidas sincronizadas en tiempo real entre todos los celulares y dispositivos</p>
     <div id="modal-ranking-status" class="rank-status-badge cloud">🌐 Conectando a la nube...</div>
     <div id="modal-ranking-list"></div>
-    <div style="display:flex;gap:10px;justify-content:center;margin-top:14px">
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap">
       <button id="modal-ranking-refresh" class="rank-modal-btn">🔄 ACTUALIZAR</button>
+      <button id="modal-ranking-clear" class="rank-modal-btn danger" type="button">🗑️ LIMPIAR HISTORIAL</button>
       <button id="modal-ranking-close" class="rank-modal-btn close">CERRAR</button>
     </div>
   </div>
@@ -414,7 +418,10 @@
     <div id="go-save-status"></div>
   </div>
   <div id="ranking-card">
-    <h3>🏆 HISTORIAL Y RANKING GLOBAL</h3>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <h3 style="margin:0">🏆 HISTORIAL Y RANKING GLOBAL</h3>
+      <button id="go-ranking-clear" style="background:none;border:none;color:#ff4466;font-size:11px;font-weight:800;cursor:pointer;text-decoration:underline;padding:2px 6px" type="button">🗑️ Limpiar</button>
+    </div>
     <div id="ranking-status" class="rank-status-badge cloud">🌐 Sincronizado en la nube — Visible en todos los celulares y PC</div>
     <div id="ranking-list"></div>
   </div>
@@ -1643,18 +1650,26 @@ const welcomeRankBtn = $('welcome-rank-btn');
 const modalRankClose = $('modal-ranking-close');
 const modalRankRefresh = $('modal-ranking-refresh');
 
-async function abrirModalRanking() {
-  iniciarAutoRefrescoRanking();
-  rankingModal.classList.remove('oculto');
-  $('modal-ranking-status').className = 'rank-status-badge cloud';
-  $('modal-ranking-status').textContent = '🌐 Conectando con la nube...';
-  const { ranking, source } = await cargarRankingGlobal();
-  renderizarRanking(ranking, null, source, 'modal-ranking-list', 'modal-ranking-status');
+function iniciarAutoRefrescoRanking() {
+  if (pollingFallbackInterval) return;
+  pollingFallbackInterval = setInterval(async () => {
+    const modalAbierto = rankingModal && !rankingModal.classList.contains('oculto');
+    const goAbierto = gameoverEl && !gameoverEl.classList.contains('oculto');
+    if (!modalAbierto && !goAbierto) {
+      detenarAutoRefrescoSiCorresponde();
+      return;
+    }
+    try {
+      await sincronizarRanking(null);
+    } catch {}
+  }, 2500);
 }
 
-function cerrarModalRanking() {
-  rankingModal.classList.add('oculto');
-  detenarAutoRefrescoSiCorresponde();
+function detenerAutoRefrescoRanking() {
+  if (pollingFallbackInterval) {
+    clearInterval(pollingFallbackInterval);
+    pollingFallbackInterval = null;
+  }
 }
 
 function detenarAutoRefrescoSiCorresponde() {
@@ -1665,7 +1680,58 @@ function detenarAutoRefrescoSiCorresponde() {
   }
 }
 
+async function abrirModalRanking() {
+  rankingModal.classList.remove('oculto');
+  const local = cargarRankingLocal();
+  if (local && local.length > 0) {
+    renderizarRanking(local, null, 'cloud', 'modal-ranking-list', 'modal-ranking-status');
+  } else {
+    $('modal-ranking-status').className = 'rank-status-badge cloud';
+    $('modal-ranking-status').textContent = '🌐 Conectando con la nube...';
+  }
+  iniciarAutoRefrescoRanking();
+  try {
+    const { ranking, source } = await cargarRankingGlobal();
+    renderizarRanking(ranking, null, source, 'modal-ranking-list', 'modal-ranking-status');
+  } catch (err) {
+    console.warn('Error cargando ranking:', err);
+  }
+}
+
+function cerrarModalRanking() {
+  rankingModal.classList.add('oculto');
+  detenarAutoRefrescoSiCorresponde();
+}
+
+async function limpiarHistorialGlobal() {
+  const seguro = confirm('⚠️ ¿Estás seguro de que querés borrar todo el historial y ranking?\n\nEsta acción reiniciará las posiciones a cero para todos los jugadores.');
+  if (!seguro) return;
+  guardarRankingLocal([]);
+  guardarPendingSync([]);
+  ultimoRankingHash = '';
+  renderizarRanking([], null, 'cloud', 'modal-ranking-list', 'modal-ranking-status');
+  renderizarRanking([], null, 'cloud', 'ranking-list', 'ranking-status');
+  try {
+    await fetch(UPSTASH_DIRECT_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${UPSTASH_DIRECT_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(['SET', 'lrudefender_ranking', JSON.stringify([])])
+    });
+  } catch {}
+  try {
+    await fetch(`${API_RANKING_URL}?action=reset`, { method: 'POST' });
+  } catch {}
+  try {
+    rankingChannel?.postMessage({ type: 'RANKING_UPDATED', hash: '' });
+  } catch {}
+  alert('✅ El historial y ranking se han reiniciado a cero.');
+}
+
 if (welcomeRankBtn) welcomeRankBtn.addEventListener('click', abrirModalRanking);
+const modalRankClear = $('modal-ranking-clear');
+if (modalRankClear) modalRankClear.addEventListener('click', limpiarHistorialGlobal);
+const goRankClear = $('go-ranking-clear');
+if (goRankClear) goRankClear.addEventListener('click', limpiarHistorialGlobal);
 if (modalRankClose) modalRankClose.addEventListener('click', cerrarModalRanking);
 if (modalRankRefresh) modalRankRefresh.addEventListener('click', abrirModalRanking);
 rankingModal.addEventListener('click', e => { if (e.target === rankingModal) cerrarModalRanking(); });
