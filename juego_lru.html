@@ -1299,6 +1299,8 @@ const SERVER_BASE = obtenerUrlBaseServidor();
 const API_RANKING_URL = `${SERVER_BASE}/api/ranking`;
 const API_EVENTS_URL = `${SERVER_BASE}/api/events`;
 const API_INFO_URL = `${SERVER_BASE}/api/info`;
+const UPSTASH_DIRECT_URL = 'https://organic-meerkat-236272.upstash.io';
+const UPSTASH_DIRECT_TOKEN = 'gQAAAAAAA5rwAAIgcDFhMzFjY2QyYjY3MTg0NTRjYjFiOWUxNDczNjg2YjQwNQ';
 const RANKING_KEY = 'lrudefender_ranking_v3';
 const PENDING_SYNC_KEY = 'lrudefender_pending_sync_v3';
 
@@ -1441,7 +1443,7 @@ async function sincronizarRanking(nuevoResultado = null) {
   let remoteList = [];
   let conectado = false;
 
-  // 1. Enviar pendientes acumulados
+  // 1. Enviar pendientes acumulados (vía /api/ranking o directo a Upstash)
   if (pending.length > 0) {
     try {
       const postRes = await fetch(API_RANKING_URL, {
@@ -1454,7 +1456,7 @@ async function sincronizarRanking(nuevoResultado = null) {
         conectado = true;
       }
     } catch (err) {
-      console.warn('Backend temporalmente desconectado:', err.message);
+      console.warn('API local/Vercel no respondió, usando Upstash directo:', err.message);
     }
   }
 
@@ -1467,7 +1469,20 @@ async function sincronizarRanking(nuevoResultado = null) {
       conectado = true;
     }
   } catch (err) {
-    console.warn('No se pudo obtener ranking remoto:', err.message);
+    // Fallback directo a Upstash Redis
+    try {
+      const uRes = await fetch(`${UPSTASH_DIRECT_URL}/get/lrudefender_ranking`, {
+        headers: { Authorization: `Bearer ${UPSTASH_DIRECT_TOKEN}` },
+        cache: 'no-store'
+      });
+      if (uRes.ok) {
+        const uJson = await uRes.json();
+        if (uJson.result) {
+          remoteList = typeof uJson.result === 'string' ? JSON.parse(uJson.result) : uJson.result;
+          conectado = true;
+        }
+      }
+    } catch {}
   }
 
   // 3. Fusión por ID único para evitar pisar partidas de otros jugadores
@@ -1479,6 +1494,18 @@ async function sincronizarRanking(nuevoResultado = null) {
   const merged = Array.from(map.values());
   merged.sort((a,b)=>b.puntos!==a.puntos?b.puntos-a.puntos:b.tasa!==a.tasa?b.tasa-a.tasa:a.duracion-b.duracion);
   const topList = merged.slice(0, 100);
+
+  // Si hubo pendientes y se usó Upstash directo, sincronizar en la nube
+  if (pending.length > 0 && conectado) {
+    try {
+      await fetch(UPSTASH_DIRECT_URL, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${UPSTASH_DIRECT_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(['SET', 'lrudefender_ranking', JSON.stringify(topList)])
+      });
+      guardarPendingSync([]);
+    } catch {}
+  }
 
   aplicarActualizacionRanking(topList, conectado ? 'cloud' : 'local');
   actualizarBadgesEstado(conectado);
